@@ -24,9 +24,30 @@ stroke = read_csv("stroke.csv")
 ```
 
 
-# Question
+# Question and Initial Research
 •	Question and background information on the data and why you are asking this question(s).  References to previous research/evidence generally would be nice to include. – You must present your question to me during office hours, either next week on  26th or the following week on the 3rd  
 How can we most accurately predict if someone will have a stroke?
+
+We found a dataset on Kaggle to use that includes records from both ischemic and hemorrhagic strokes. The criteria used to define a stroke was that a stroke occurs when a blood vessel that carries oxygen and nutrients to the brain is either blocked (ischemic) by a clot or bursts (hemorrhagic). This dataset includes 11 unique features of each patient, in addition to whether or not they had a stroke. The recorded features are:
+• patient identification number
+• gender
+• age
+• presence of hypertension 
+• presence of heart disease
+• marital status
+• job type
+• residence type
+• average glucose level 
+• BMI
+• smoking status 
+
+
+Benefits
+economic
+want to predict because they're hard to deal with 
+
+
+
 
 # Exploratory Data Analysis
 •	Exploratory Data Analysis – Initial summary statistics and graphs with an emphasis on variables you believe to be important for your analysis. 
