@@ -11,23 +11,44 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 # Packages
-library(ggplot)
+library(ggplot2)
 library(plotly)
 library(dplyr)
 library(tidyverse)
 library(caret)
 ```
 
+```{r}
+# bring in the data
+stroke = read_csv("stroke.csv")
+```
+
 
 # Question
+•	Question and background information on the data and why you are asking this question(s).  References to previous research/evidence generally would be nice to include. – You must present your question to me during office hours, either next week on  26th or the following week on the 3rd  
 
 # Exploratory Data Analysis
+•	Exploratory Data Analysis – Initial summary statistics and graphs with an emphasis on variables you believe to be important for your analysis. 
 
 # Methods and Evaluation
-  Do evaluation with each method, not all after
+Do evaluation with each method, not all after
+  
+•	Methods – Techniques you are using to address your question and the results of those methods.
+•	Evaluation of your model – Select appropriate metrics and explain the output as it relates to your question.
+
+## KNN
+
+## Clustering
+
+## Decision
+
+## Random Forest
 
 # Fairness Assessment
+•	Fairness assessment – if necessary, should you happen to have any protected classes.
 
 # Conclusions
+•	Conclusions – What can you say about the results of the methods section as it relates to your question given the limitations to your model. 
 
 # Future Work
+•	Future work – What additional analysis is needed or what limited your analysis on this project.
