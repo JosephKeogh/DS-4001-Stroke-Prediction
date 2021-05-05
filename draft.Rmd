@@ -26,6 +26,7 @@ stroke = read_csv("stroke.csv")
 
 # Question
 •	Question and background information on the data and why you are asking this question(s).  References to previous research/evidence generally would be nice to include. – You must present your question to me during office hours, either next week on  26th or the following week on the 3rd  
+How can we most accurately predict if someone will have a stroke?
 
 # Exploratory Data Analysis
 •	Exploratory Data Analysis – Initial summary statistics and graphs with an emphasis on variables you believe to be important for your analysis. 
@@ -52,3 +53,8 @@ Do evaluation with each method, not all after
 
 # Future Work
 •	Future work – What additional analysis is needed or what limited your analysis on this project.
+
+
+# References 
+
+
