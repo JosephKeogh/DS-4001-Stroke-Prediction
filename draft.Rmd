@@ -1,0 +1,33 @@
+---
+title: "First Draft"
+author: "Group 10"
+date: "5/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Packages
+library(ggplot)
+library(plotly)
+library(dplyr)
+library(tidyverse)
+library(caret)
+```
+
+
+# Question
+
+# Exploratory Data Analysis
+
+# Methods and Evaluation
+  Do evaluation with each method, not all after
+
+# Fairness Assessment
+
+# Conclusions
+
+# Future Work
