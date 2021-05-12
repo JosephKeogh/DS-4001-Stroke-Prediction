@@ -24,6 +24,8 @@ library(e1071)
 
 ```{r}
 stroke <- read.csv("stroke.csv")
+
+
 stroke$bmi <- gsub("N/A", NA, stroke$bmi)
 stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status)
 stroke <- na.omit(stroke)
@@ -46,12 +48,18 @@ stroke <- stroke %>%
 
 # https://www.statista.com/statistics/241494/median-age-of-the-us-population/#:~:text=In%202018%2C%20the%20median%20age,United%20States%20was%2038.4%20years.
 
-str(stroke)
-stroke <- stroke[-c(1, 2, 3, 7, 9, 10, 11)]
 
-stroke <- lapply(stroke, function(x) as.factor(x))
+stroke_positive <- subset(stroke, stroke == 1)
 
-stroke <- as_tibble(stroke)
+stroke_negative <- subset(stroke, stroke == 0)
+set.seed(1980)
+stroke_sample <- stroke_negative[sample(1:nrow(stroke_negative), size = 500),]
+stroke_final <- rbind(stroke_sample, stroke_positive)
+stroke_final <- stroke_final[-c(1, 2, 3, 7, 9, 10, 11)]
+
+stroke_final <- lapply(stroke_final, function(x) as.factor(x))
+
+stroke_final <- as_tibble(stroke_final)
 
 
 ```
@@ -59,31 +67,29 @@ stroke <- as_tibble(stroke)
 
 ```{r}
 set.seed(1950)
-stroke_break <- createDataPartition(stroke$stroke, times = 1, p = 0.8, list = FALSE)
-training_stroke <- stroke[stroke_break,]
+stroke_break <- createDataPartition(stroke_final$stroke, times = 1, p = 0.8, list = FALSE)
+training_stroke <- stroke_final[stroke_break,]
 
-test_stroke <- stroke[-stroke_break,]
+test_stroke <- stroke_final[-stroke_break,]
 
 
 ```
 
 # Baserate Calculation for Stroke
 ```{r}
-mean(as.numeric(stroke$stroke))-1
+mean(as.numeric(stroke_final$stroke))-1
 
-# 0.0525394
+# 0.4186047
 ```
 
 # Building the Model
 ```{r}
 set.seed(1950)
-str(stroke)
-as.numeric(stroke$stroke)
 tree_stroke = rpart(stroke~.,  
                             method = "class",
                             parms = list(split = "gini"),
                             data = training_stroke,
-                            control = rpart.control(cp=0))
+                            control = rpart.control(cp=0.01))
 
 
 ```
