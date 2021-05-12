@@ -5,9 +5,105 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(rio)
+library(plyr)
+library(tidyverse)
+library(rpart)
+library(psych)
+library(pROC)
+library(rpart.plot)
+library(rattle)
+library(caret)
+library(C50)
+library(mlbench)
+install.packages("e1071")
+library(e1071)
+```
+
+# Data Cleaning
+
+```{r}
+stroke <- read.csv("stroke.csv")
+stroke <- na.omit(stroke)
+stroke$bmi <- gsub("N/A", NA, stroke$bmi)
+stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status)
+stroke <- na.omit(stroke)
+
+# Data Cleaning Specifically for Decision Tree
+
+stroke$bmi <- as.numeric(stroke$bmi)
+stroke <- stroke %>%
+  mutate(bmi_state = ifelse(bmi <= 25, "normal", "overweight"))
+
+# https://www.cdc.gov/healthyweight/assessing/bmi/adult_bmi/index.html
+
+stroke <- stroke %>%
+  mutate(glucose_state = ifelse(avg_glucose_level <= 140, "normal", "prediabetic"))
+
+# https://www.mayoclinic.org/diseases-conditions/diabetes/diagnosis-treatment/drc-20371451#:~:text=A%20blood%20sugar%20level%20less,mmol%2FL)%20indicates%20prediabetes.
+
+stroke <- stroke %>%
+  mutate(age_state = ifelse(age <= 38.4, "young", "old"))
+
+# https://www.statista.com/statistics/241494/median-age-of-the-us-population/#:~:text=In%202018%2C%20the%20median%20age,United%20States%20was%2038.4%20years.
+
+str(stroke)
+stroke <- stroke[-c(1, 2, 3, 7, 9, 10, 11)]
+
+stroke <- lapply(stroke, function(x) as.factor(x))
+
+stroke <- as_tibble(stroke)
+
+
+```
+# Creation of Test Set
+
+```{r}
+set.seed(1950)
+stroke_break <- createDataPartition(stroke$stroke, times = 1, p = 0.8, list = FALSE)
+training_stroke <- stroke[stroke_break,]
+
+test_stroke <- stroke[-stroke_break,]
+
+
+```
+
+# Baserate Calculation for Stroke
+```{r}
+mean(as.numeric(stroke$stroke))-1
+
+# 0.0525394
+```
+
+# Building the Model
+```{r}
+set.seed(1950)
+str(stroke)
+as.numeric(stroke$stroke)
+tree_stroke = rpart(stroke~.,  
+                            method = "class",
+                            parms = list(split = "gini"),
+                            data = training_stroke,
+                            control = rpart.control(cp=0))
+
+
 ```
 
 ```{r}
+tree_stroke
+tree_stroke$variable.importance
+```
 
+```{r}
+rpart.plot(tree_stroke, type = 4, extra = 101)
+plotcp(tree_stroke)
+
+stroke_predict = predict(tree_stroke, test_stroke, type = "class")
+```
+
+```{r}
+tree_matrix <- confusionMatrix(as.factor(stroke_predict), as.factor(test_stroke$stroke), positive = "1", dnn = c("Prediction", "Actual"), mode = "sens_spec")
+
+tree_matrix
 ```
 
