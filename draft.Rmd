@@ -1,51 +1,55 @@
 ---
 title: "First Draft"
 author: "Group 10"
-date: "5/5/2021"
-output: html_document
+output: 
+  prettydoc::html_pretty:
+    theme: hpstr
+    highlight: github
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
-
-```{r}
-# Packages
+library(prettydoc)
 library(ggplot2)
 library(plotly)
 library(dplyr)
 library(tidyverse)
 library(caret)
+library(DT)
 ```
 
-```{r}
+
+```{r, echo = FALSE, message = FALSE}
+
 # bring in the data
 stroke = read_csv("stroke.csv")
+
 ```
 
 
 # Question and Initial Research
-•	Question and background information on the data and why you are asking this question(s).  References to previous research/evidence generally would be nice to include. – You must present your question to me during office hours, either next week on  26th or the following week on the 3rd  
-How can we most accurately predict if someone will have a stroke?
+
+How can we most accurately predict if someone will have a stroke and what are the most important predictive factors?
+
+Being able to answer this question would provide many benefits. According to the CDC, strokes are one of the leading causes of death in the U.S. They are hard to deal with, and being able to predict and therefore prevent them would be useful. If high-risk individuals could be identified, they could also be informed of warning signs of stroke to look out for, as stroke survival rates are much higher when emergency treatment begins quickly. 
+
+Being able to accurately predict strokes and therefore prevent them would also have economic benefits. According to the CDC, stroke-related costs in the United States were nearly $46 billion between 2014 and 2015, including the cost of health care services, medicines to treat stroke, and missed days of work. Strokes are also one of the leading causes of serious long-term disability. Strokes reduce mobility in more than 50% of stroke survivors over the age of 65.
 
 We found a dataset on Kaggle to use that includes records from both ischemic and hemorrhagic strokes. The criteria used to define a stroke was that a stroke occurs when a blood vessel that carries oxygen and nutrients to the brain is either blocked (ischemic) by a clot or bursts (hemorrhagic). This dataset includes 11 unique features of each patient, in addition to whether or not they had a stroke. The recorded features are:
-• patient identification number
-• gender
-• age
-• presence of hypertension 
-• presence of heart disease
-• marital status
-• job type
-• residence type
-• average glucose level 
-• BMI
-• smoking status 
 
+- patient identification number
+- gender
+- age
+- presence of hypertension 
+- presence of heart disease
+- marital status
+- job type
+- residence type
+- average glucose level 
+- BMI
+- smoking status 
 
-Benefits
-economic
-want to predict because they're hard to deal with 
-
+The CDC indicates that high blood pressure, high cholesterol, smoking, obesity, and diabetes are leading causes of stroke. From this data analysis, we would therefore expect to see that smoking status, BMI, hypertension, and heart disease would be the most important factors in predicting stroke. 
 
 
 
@@ -77,5 +81,9 @@ Do evaluation with each method, not all after
 
 
 # References 
+
+https://www.cdc.gov/stroke/facts.htm
+
+https://www.kaggle.com/fedesoriano/stroke-prediction-dataset
 
 
