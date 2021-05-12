@@ -24,7 +24,6 @@ library(e1071)
 
 ```{r}
 stroke <- read.csv("stroke.csv")
-stroke <- na.omit(stroke)
 stroke$bmi <- gsub("N/A", NA, stroke$bmi)
 stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status)
 stroke <- na.omit(stroke)
