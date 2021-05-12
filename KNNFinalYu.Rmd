@@ -16,6 +16,87 @@ stroke <- read.csv("stroke.csv")
 stroke$bmi <- gsub("N/A", NA, stroke$bmi)
 stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status)
 stroke <- na.omit(stroke)
+stroke <- stroke[ -c(1)]
+str(stroke)
+
+stroke$gender <- as.factor(stroke$gender)
+stroke$ever_married <- as.factor(stroke$ever_married)
+stroke$work_type <- as.factor(stroke$work_type)
+stroke$Residence_type <- as.factor(stroke$Residence_type)
+stroke$smoking_status <- as.factor(stroke$smoking_status)
+
+stroke <- lapply(stroke, function(x) as.numeric(x))
+
+stroke <- as_tibble(stroke)
 
 ```
+# Correlation Test
+
+```{r}
+stroke_correlations <- cor(stroke)
+datatable(stroke_correlations)
+
+# No columns with correlation > 0.6 or less than -0.6
+```
+
+# Creating Test and Training Set
+```{r}
+set.seed(1980)
+stroke_break <- createDataPartition(stroke$stroke, times = 1, p = 0.8, list = FALSE)
+training_stroke <- stroke[stroke_break,]
+
+test_stroke <- stroke[-stroke_break,]
+```
+```{r}
+chooseK = function(k, train_set, val_set, train_class, val_class){
+  set.seed(1)
+  class_knn = knn(train = train_set,
+                  test = val_set,
+                  cl = train_class,
+                  k = k,
+                  use.all = T)
+  conf_mat = table(class_knn, val_class)
+  accu = sum(conf_mat[row(conf_mat) == col(conf_mat)]) / sum(conf_mat)
+  cbind(k = k, accuracy = accu)
+}
+
+different_k = sapply(seq(1, 21, by = 2),
+                     function(x) chooseK(x,
+                                         train_set = training_stroke[, -c(11)],
+                                         val_set = test_stroke[, -c(11)],
+                                         train_class = training_stroke$stroke,
+                                         val_class = test_stroke$stroke
+                                         ))
+
+  
+different_k  = tibble(k = different_k[1,],
+                      recall_sen = different_k[2,])
+
+ggplot(different_k,
+       aes(x = k, y = recall_sen)) + 
+  geom_line(color = "orange", size = 1.5) + 
+  geom_point(size = 3)
+
+```
+# KNN Model with 3NN
+```{r}
+training_stroke
+stroke_KNN <- knn(train = training_stroke[, -c(11)],
+              test = test_stroke[, -c(11)],
+              cl = training_stroke$stroke,
+              k = 3,
+              use.all = T,
+              prob = T)
+
+prb<- data.frame(prob = attr(stroke_KNN, "prob"))
+```
+
+```{r}
+stroke_matrix <- confusionMatrix(as.factor(stroke_KNN), as.factor(test_stroke$stroke), positive = "1", dnn = c("Prediction", "Actual"), mode = "sens_spec")
+
+stroke_matrix
+
+```
+
+
 
