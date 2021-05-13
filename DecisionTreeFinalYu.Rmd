@@ -16,7 +16,6 @@ library(rattle)
 library(caret)
 library(C50)
 library(mlbench)
-install.packages("e1071")
 library(e1071)
 ```
 
@@ -24,13 +23,11 @@ library(e1071)
 
 ```{r}
 stroke <- read.csv("stroke.csv")
-
-
 stroke$bmi <- gsub("N/A", NA, stroke$bmi)
 stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status)
 stroke <- na.omit(stroke)
 
-# Data Cleaning Specifically for Decision Tree
+# Data Cleaning Specifically for Decision Tree - Changing things to Binary 
 
 stroke$bmi <- as.numeric(stroke$bmi)
 stroke <- stroke %>%
@@ -79,7 +76,7 @@ test_stroke <- stroke_final[-stroke_break,]
 ```{r}
 mean(as.numeric(stroke_final$stroke))-1
 
-# 0.4186047
+# 0.2647059
 ```
 
 # Building the Model
@@ -106,9 +103,17 @@ plotcp(tree_stroke)
 stroke_predict = predict(tree_stroke, test_stroke, type = "class")
 ```
 
+# Confusion Matrix 
 ```{r}
 tree_matrix <- confusionMatrix(as.factor(stroke_predict), as.factor(test_stroke$stroke), positive = "1", dnn = c("Prediction", "Actual"), mode = "sens_spec")
 
 tree_matrix
+```
+
+# ROC Curve
+```{r}
+Stroke_roc <- roc(as.numeric(test_stroke$stroke), as.numeric(stroke_predict), plot = TRUE)
+Stroke_roc$auc
+plot(Stroke_roc) 
 ```
 

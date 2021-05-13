@@ -9,6 +9,8 @@ library(tidyverse)
 library(DT)
 library(caret)
 library(class)
+library(ROCR)
+library(MLmetrics)
 ```
 
 ```{r}
@@ -87,7 +89,7 @@ ggplot(different_k,
   geom_point(size = 3)
 
 ```
-# KNN Model with 3NN
+# KNN Model with 9NN
 ```{r}
 training_stroke
 stroke_KNN <- knn(train = training_stroke[, -c(11)],
@@ -97,7 +99,7 @@ stroke_KNN <- knn(train = training_stroke[, -c(11)],
               use.all = T,
               prob = T)
 
-prb<- data.frame(prob = attr(stroke_KNN, "prob"))
+prob_stroke<- data.frame(prob = attr(stroke_KNN, "prob"))
 ```
 
 ```{r}
@@ -107,5 +109,33 @@ stroke_matrix
 
 ```
 
+# Evaluation Metrics
+```{r}
+prob_stroke <- prob_stroke %>%
+  mutate(prob_stroke, target = as.numeric(stroke_KNN))
+prob_stroke$target <- as.numeric(recode(prob_stroke$target, '2' = '1', '1' = '0'))
+
+prob_stroke <- prob_stroke %>%
+  mutate('1' = ifelse(prob_stroke$target =='1', prob_stroke$prob, 1-prob_stroke$prob))
+
+prob_stroke <- prob_stroke%>%
+  mutate('0' = 1-prob_stroke$`1`)
+
+LogLoss(as.numeric(prob_stroke$`1`), as.numeric(test_stroke$stroke)) # 2.820455
+F1_Score(as.numeric(stroke_KNN), as.numeric(test_stroke$stroke)) # 0.2739726
+
+```
+
+# ROC/AUC Output
+```{r}
+stroke_eval <- data.frame(pred_class = stroke_KNN, pred_prob = prob_stroke$`1`, target = as.numeric(test_stroke$stroke))
+pred_stroke <- prediction(stroke_eval$pred_prob, stroke_eval$target)
+
+stroke_perf <- performance(pred_stroke, "tpr","fpr")
+plot(stroke_perf, colorize = TRUE) + abline(a=0,b=1)
+stroke_perf_AUC <- performance(pred_stroke, "auc")
+print(stroke_perf_AUC@y.values) # AUC 0.7771214
+
+```
 
 
