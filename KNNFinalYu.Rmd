@@ -13,23 +13,21 @@ library(ROCR)
 library(MLmetrics)
 ```
 
-```{r}
+# Data Cleaning
+Values with the value "N/A" and "Unknown in the columns bmi and smoking_status were replaced with NA.  All NA values were then removed from the dataset.  The first column, id, was also removed.  Since the data is heavily unbalanced with only roughly 5% of the patients being positive for stroke, the data was sampled to make it more balanced.  All 180 patients who had a stroke were joined with a randomly sampled 500 patients from the old dataset that didn't have a stroke.  
+```{r, echo = FALSE, include = FALSE}
 stroke <- read.csv("stroke.csv")
 stroke$bmi <- gsub("N/A", NA, stroke$bmi)
 stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status)
 stroke <- na.omit(stroke)
 stroke <- stroke[ -c(1)]
-str(stroke)
 
 stroke$gender <- as.factor(stroke$gender)
 stroke$ever_married <- as.factor(stroke$ever_married)
 stroke$work_type <- as.factor(stroke$work_type)
 stroke$Residence_type <- as.factor(stroke$Residence_type)
 stroke$smoking_status <- as.factor(stroke$smoking_status)
-
-
 stroke_positive <- subset(stroke, stroke == 1)
-
 stroke_negative <- subset(stroke, stroke == 0)
 set.seed(1980)
 stroke_sample <- stroke_negative[sample(1:nrow(stroke_negative), size = 500),]
@@ -40,17 +38,16 @@ stroke <- lapply(stroke_final, function(x) as.numeric(x))
 stroke <- as_tibble(stroke)
 
 ```
-# Correlation Test
 
-```{r}
-stroke_correlations <- cor(stroke)
-datatable(stroke_correlations)
-
-# No columns with correlation > 0.6 or less than -0.6
+# Baserate for Dataset
+The base-rate for the data set is 26.47%. 
+```{r, echo = FALSE, include = FALSE}
+mean(as.numeric(stroke$stroke))
 ```
 
 # Creating Test and Training Set
-```{r}
+The test and training set was created with an 80/20 partition where 80% of the data set was used for training and 20% was used for testing. 
+```{r, echo = FALSE}
 set.seed(1980)
 stroke_break <- createDataPartition(stroke$stroke, times = 1, p = 0.8, list = FALSE)
 training_stroke <- stroke[stroke_break,]
@@ -58,7 +55,9 @@ training_stroke <- stroke[stroke_break,]
 test_stroke <- stroke[-stroke_break,]
 ```
 
-```{r}
+# Choosing the best K value for kNN
+  Using the elbow chart, we determined that a K value of 9 was best for our analysis. 
+```{r, echo = FALSE}
 chooseK = function(k, train_set, val_set, train_class, val_class){
   set.seed(1)
   class_knn = knn(train = train_set,
@@ -90,27 +89,27 @@ ggplot(different_k,
 
 ```
 # KNN Model with 9NN
-```{r}
-training_stroke
+
+The confusion matrix below illustrates some of the the evaluation metrics for the model.  The accuracy of the model overall is 82.35% which is good considering that the base rate for the data set was 26.47%. The Balanced Accuracy for the model was around 74.06% which is also pretty good compared to the base rate.  The false negative rate was 44.74% which is not great since that means 44.74% of people who had a stroke were classified as not being at risk of a stroke from our model.  The true negative rate was 92.86% which is great since that means the model was good at figuring out people who aren't at risk of a stroke. The Kappa value for the model was 0.5234 which indicates moderate agreement. For a model like this, it would have been better if the false negative rate was much lower and the false positive rate to be higher since it would be very bad if a patient who was at risk was told that they didn't have to worry about anything. The Log-Loss was calculated to be 0.8960143 which is not great.  The F1-score was 0.2739726 which is bad likely due to the high rate of false negatives.  
+```{r, echo = FALSE, include = FALSE}
 stroke_KNN <- knn(train = training_stroke[, -c(11)],
               test = test_stroke[, -c(11)],
               cl = training_stroke$stroke,
-              k = 3,
+              k = 9,
               use.all = T,
               prob = T)
 
 prob_stroke<- data.frame(prob = attr(stroke_KNN, "prob"))
 ```
 
-```{r}
+```{r, echo = FALSE}
 stroke_matrix <- confusionMatrix(as.factor(stroke_KNN), as.factor(test_stroke$stroke), positive = "1", dnn = c("Prediction", "Actual"), mode = "sens_spec")
 
 stroke_matrix
 
 ```
 
-# Evaluation Metrics
-```{r}
+```{r, echo = FALSE, include = FALSE}
 prob_stroke <- prob_stroke %>%
   mutate(prob_stroke, target = as.numeric(stroke_KNN))
 prob_stroke$target <- as.numeric(recode(prob_stroke$target, '2' = '1', '1' = '0'))
@@ -121,20 +120,22 @@ prob_stroke <- prob_stroke %>%
 prob_stroke <- prob_stroke%>%
   mutate('0' = 1-prob_stroke$`1`)
 
-LogLoss(as.numeric(prob_stroke$`1`), as.numeric(test_stroke$stroke)) # 2.820455
+LogLoss(as.numeric(prob_stroke$`1`), as.numeric(test_stroke$stroke)) # 0.8960143
 F1_Score(as.numeric(stroke_KNN), as.numeric(test_stroke$stroke)) # 0.2739726
 
 ```
 
 # ROC/AUC Output
-```{r}
+The AUC curve had a value of 0.8258593 which is pretty good meaning that our model is doing a good job of distinguishing between patients with and without disease.
+```{r, echo = FALSE, include = FALSE}
 stroke_eval <- data.frame(pred_class = stroke_KNN, pred_prob = prob_stroke$`1`, target = as.numeric(test_stroke$stroke))
 pred_stroke <- prediction(stroke_eval$pred_prob, stroke_eval$target)
 
 stroke_perf <- performance(pred_stroke, "tpr","fpr")
-plot(stroke_perf, colorize = TRUE) + abline(a=0,b=1)
+plot(stroke_perf, colorize = TRUE) + 
+  abline(a=0,b=1)
 stroke_perf_AUC <- performance(pred_stroke, "auc")
-print(stroke_perf_AUC@y.values) # AUC 0.7771214
+print(stroke_perf_AUC@y.values) # AUC 0.8258593
 
 ```
 
