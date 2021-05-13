@@ -130,7 +130,7 @@ F1_Score(as.numeric(stroke_KNN), as.numeric(test_stroke$stroke)) # 0.7647059
 ```
 
 # ROC/AUC Output
-The AUC curve had a value of 0.8258593 which is pretty good meaning that our model is doing a good job of distinguishing between patients with and without disease.
+The AUC curve had a value of 0.77276273 which is pretty good meaning that our model is doing a good job of distinguishing between patients with and without disease.
 ```{r, echo = FALSE, include = FALSE}
 stroke_eval <- data.frame(pred_class = stroke_KNN, pred_prob = prob_stroke$`1`, target = as.numeric(test_stroke$stroke))
 pred_stroke <- prediction(stroke_eval$pred_prob, stroke_eval$target)
@@ -139,7 +139,7 @@ stroke_perf <- performance(pred_stroke, "tpr","fpr")
 plot(stroke_perf, colorize = TRUE) + 
   abline(a=0,b=1)
 stroke_perf_AUC <- performance(pred_stroke, "auc")
-print(stroke_perf_AUC@y.values) # AUC 0.8258593
+print(stroke_perf_AUC@y.values) 
 
 ```
 

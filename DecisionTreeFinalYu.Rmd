@@ -21,6 +21,7 @@ library(e1071)
 
 # Data Cleaning
 
+The data was cleaned similar to how it was cleaned in the kNN model with the exception of the added binary columns: bmi_state, glucose_state, and age_state. BMI_state was created based off of the bmi of each patient and if they had a bmi over 25 then they were classified as overweight and those with a bmi less than 25 were classified as having a normal weight. Glucose_state was done in a similar manner where people with a glucose level less than 125 was classified as normal and those over 125 were classified as diabetic. Lastly, age_state was classified based off of the average age in the United States which is 38.4 so people who were younger than 38.4 were classified as young and those older than 38.4 were classified as old. The original columns, bmi, age, and glucose were then removed as we were unable to use them in our tree since they are not binary. 
 ```{r}
 stroke <- read.csv("stroke.csv")
 stroke$bmi <- gsub("N/A", NA, stroke$bmi)
@@ -33,7 +34,6 @@ stroke$bmi <- as.numeric(stroke$bmi)
 stroke <- stroke %>%
   mutate(bmi_state = ifelse(bmi <= 25, "normal", "overweight"))
 
-# https://www.cdc.gov/healthyweight/assessing/bmi/adult_bmi/index.html
 
 stroke <- stroke %>%
   mutate(glucose_state = ifelse(avg_glucose_level <= 125, "normal", "diabetic"))
@@ -58,7 +58,7 @@ stroke_final <- as_tibble(stroke_final)
 
 ```
 # Creation of Test Set
-
+The test and training set was created with an 80/20 partition where 80% of the data set was used for training and 20% was used for testing. 
 ```{r}
 set.seed(1980)
 stroke_break <- createDataPartition(stroke_final$stroke, times = 1, p = 0.8, list = FALSE)
@@ -68,13 +68,14 @@ test_stroke <- stroke_final[-stroke_break,]
 ```
 
 # Baserate Calculation for Stroke
-```{r}
+The baserate calculation is 50% which means that if guessing randomly you have a 50% chance of guessing correctly. 
+```{r, echo = FALSE, include = FALSE}
 mean(as.numeric(stroke_final$stroke))-1
 
-# 0.5
 ```
 
 # Building the Model
+The 5 variables used by the model were age_state, glucose_state, heart_disease, residence_type, ever_married, and hypertension. The most important variable in this model was age_state, meaning that age is a really good indicator of whether or not you will have a stroke. Next, glucose_state was also a good estimate for stroke likelihood.  Surprisingly, hypertension wasn't a very good indicator. Based off of the relative error, 6 is the ideal number since it has the lowest relative error. 
 ```{r}
 set.seed(1950)
 tree_stroke = rpart(stroke~.,  
@@ -87,36 +88,39 @@ tree_stroke = rpart(stroke~.,
 ```
 
 ```{r}
-tree_stroke
 tree_stroke$variable.importance
 ```
 
 ```{r}
 rpart.plot(tree_stroke, type = 4, extra = 101)
-plotcp(tree_stroke)
-
-stroke_predict = predict(tree_stroke, test_stroke, type = "class")
 ```
 
-# Confusion Matrix 
 ```{r}
+plotcp(tree_stroke)
+
+```
+
+# Confusion Matrix  and Prediction Model
+The model had an overall accuracy of 61.11% and a balanced accuracy of 61.11%.This is not too much better than the base rate of 0.5 indicating that the model is not much better than random chance. The sensitivity of the model is 0.75 indicating that the false negative rate is 25%. The specifcity of the model is 0.4722 indicating that the false positive rate is 52.78% which is not very good.  But like the kNN model, it is better to have a high false positive rate than it is to have a high false negative rate in the context of our problem since diagnosing low chance stroke people to be at risk of a stroke is better than diagnosing people who have a high chance of a stroke as having a lower chance of a stroke. The Log-Loss value was 0.54108 which is okay since that means the confident is fairly confident about its predictions. The F1-score was 0.5483831 which is not great.  This is likely due to the high false positive rate.  
+```{r}
+stroke_predict = predict(tree_stroke, test_stroke, type = "class")
 tree_matrix <- confusionMatrix(as.factor(stroke_predict), as.factor(test_stroke$stroke), positive = "1", dnn = c("Prediction", "Actual"), mode = "sens_spec")
 
 tree_matrix
 ```
 
-# Evaluation Metrics
-```{r}
+```{r, echo = FALSE, include = FALSE}
 stroke_prob <- predict(tree_stroke, newdata = test_stroke, type = "prob")
 stroke_prob <- as.tibble(stroke_prob)
 stroke_eval <- data.frame(pred_class = stroke_predict, pred_prob = stroke_prob$`1`, target = as.numeric(test_stroke$stroke))
-LogLoss(as.numeric(stroke_eval$pred_prob), as.numeric(test_stroke$stroke)) # 2.223
+LogLoss(as.numeric(stroke_eval$pred_prob), as.numeric(test_stroke$stroke)) # 0.5410805
 
 F1_Score(as.numeric(stroke_eval$pred_class), as.numeric(test_stroke$stroke)) 
 # 0.5483871
 ```
 
-# ROC Curve
+# AUC/ROC Curve
+The AUC/ROC curve shows an AUC value of 0.6111 which is pretty poor meaning that the model is not doing a good job of distinguishing between patients who get a stroke and those that are not at risk of a stroke. 
 ```{r}
 Stroke_roc <- roc(as.numeric(test_stroke$stroke), as.numeric(stroke_predict), plot = TRUE)
 Stroke_roc$auc
