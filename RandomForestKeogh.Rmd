@@ -1,0 +1,421 @@
+---
+title: "Random Forest"
+author: "Group 10"
+date: "5/13/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(randomForest)
+library(rio)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(DT)
+library(plotly)
+```
+
+```{r}
+# bring in the data
+stroke = read_csv("stroke.csv")
+```
+
+```{r}
+# set the seed
+set.seed(1)
+```
+
+# Prep the data
+```{r}
+
+stroke = stroke %>%
+  select(-id)
+
+# make all parameters factors
+stroke_factor = as.data.frame(
+  apply(
+    stroke,
+    2,
+    function(x) as.factor(x))
+  )
+
+# the proportion of data used for training
+training_split = 0.9
+
+training_rows = sample(
+                    1:nrow(stroke_factor),
+                    dim(stroke_factor)[1]*training_split,
+                    replace=FALSE
+                       )
+
+stroke_factor_training_data = stroke_factor[training_rows,]
+stroke_factor_testing_data = stroke_factor[-training_rows, ]
+
+```
+
+# Build the random forest
+```{r, include=FALSE}
+
+# use mytry function given in class
+mytry_tune = function(x){
+  xx = dim(x)[2]-1
+  return(sqrt(xx))
+}
+
+# create the random forest
+stroke_rf = randomForest(
+  as.factor(stroke)~.,
+  stroke_factor_training_data,
+  #y = NULL,           #<- A response vector. This is unnecessary because we're specifying a response formula.
+  #subset = NULL,      #<- This is unnecessary because we're using all the rows in the training data set.
+  #xtest = NULL,       #<- This is already defined in the formula by the ".".
+  #ytest = NULL,       #<- This is already defined in the formula by "parent".
+  ntree = 1000,        #<- Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets classified at least a few times.
+  mtry = mytry_tune(stroke_factor_training_data),            #<- Number of variables randomly sampled as candidates at each split. Default number for classification is sqrt(# of variables). Default number for regression is (# of variables / 3).
+  replace = TRUE,      #<- Should sampled data points be replaced.
+  #classwt = NULL,     #<- Priors of the classes. Use this if you want to specify what proportion of the data SHOULD be in each class. This is relevant if your sample data is not completely representative of the actual population 
+  #strata = NULL,      #<- Not necessary for our purpose here.
+  sampsize = 100,      #<- Size of sample to draw each time.
+  nodesize = 10,        #<- Minimum numbers of data points in terminal nodes.
+  #maxnodes = NULL,    #<- Limits the number of maximum splits. 
+  importance = TRUE,   #<- Should importance of predictors be assessed?
+  #localImp = FALSE,   #<- Should casewise importance measure be computed? (Setting this to TRUE will override importance.)
+  proximity = FALSE,    #<- Should a proximity measure between rows be calculated?
+  norm.votes = TRUE,   #<- If TRUE (default), the final result of votes are expressed as fractions. If FALSE, raw vote counts are returned (useful for combining results from different runs).
+  do.trace = TRUE,     #<- If set to TRUE, give a more verbose output as randomForest is run.
+  keep.forest = TRUE,  #<- If set to FALSE, the forest will not be retained in the output object. If xtest is given, defaults to FALSE.
+  keep.inbag = TRUE   #<- Should an n by ntree matrix be returned that keeps track of which samples are in-bag in which trees? 
+)
+```
+
+# First look model performance
+
+## Confusion matrix
+```{r}
+stroke_rf$confusion
+
+stroke_rf_accuracy = sum(stroke_rf$confusion[row(stroke_rf$confusion) == col(stroke_rf$confusion)]) / sum(stroke_rf$confusion)*100
+```
+
+```{r, echo=FALSE}
+
+prob_guessing = (sum(stroke$stroke)/nrow(stroke))^2+(1-(sum(stroke$stroke)/nrow(stroke)))^2
+```
+
+The random forest model accuracy was `r as.integer(stroke_rf_accuracy)`%
+
+Guessing would give us an accuracy of `r as.integer(prob_guessing*100)%`
+
+## Importance
+```{r}
+varImpPlot(
+  stroke_rf, 
+  sort=TRUE,
+  scale=TRUE
+)
+```
+
+Mean Decrease Accuracy plot shows how much accuracy the model losses by excluding each variable (top of plot is most important)
+
+The top five for MDA are: Age, BMI, Heart Disease, Marriage, and Hyper Tension with all five being 3 or higher 
+
+Gini plot shows how each paramter contributes to the homogeneity of the nodes. Higher the better.
+
+The top five for MDG are: Age, Glucose Level, BMI, Heart Disease and Hyper Tension with the first three being much higher (4-6 times)
+
+## Visualize random forest results
+```{r}
+stroke_rf_error = data.frame(1:nrow(stroke_rf$err.rate), stroke_rf$err.rate)
+
+colnames(stroke_rf_error) = c("Number of Trees", "Out of the Box", "No Stroke", "Stroke")
+
+stroke_rf_error$Diff <- stroke_rf_error$Stroke-stroke_rf_error$`No Stroke`
+
+datatable(stroke_rf_error)
+
+fig <- plot_ly(x=stroke_rf_error$`Number of Trees`, y=stroke_rf_error$Diff,name="Diff", type = 'scatter', mode = 'lines')
+fig <- fig %>% add_trace(y=stroke_rf_error$`Out of the Box`, name="OOB_Er")
+fig <- fig %>% add_trace(y=stroke_rf_error$`No Stroke`, name="No Stroke")
+fig <- fig %>% add_trace(y=stroke_rf_error$Stroke, name="Stroke")
+
+fig
+
+
+```
+
+# Optimize Model with Fewer Trees
+
+## Build the random forest
+```{r, include=FALSE}
+
+# create the random forest
+stroke_rf_4 = randomForest(
+  as.factor(stroke)~.,
+  stroke_factor_training_data,
+  #y = NULL,           #<- A response vector. This is unnecessary because we're specifying a response formula.
+  #subset = NULL,      #<- This is unnecessary because we're using all the rows in the training data set.
+  #xtest = NULL,       #<- This is already defined in the formula by the ".".
+  #ytest = NULL,       #<- This is already defined in the formula by "parent".
+  ntree = 4,        #<- Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets classified at least a few times.
+  mtry = mytry_tune(stroke_factor_training_data),            #<- Number of variables randomly sampled as candidates at each split. Default number for classification is sqrt(# of variables). Default number for regression is (# of variables / 3).
+  replace = TRUE,      #<- Should sampled data points be replaced.
+  #classwt = NULL,     #<- Priors of the classes. Use this if you want to specify what proportion of the data SHOULD be in each class. This is relevant if your sample data is not completely representative of the actual population 
+  #strata = NULL,      #<- Not necessary for our purpose here.
+  sampsize = 100,      #<- Size of sample to draw each time.
+  nodesize = 10,        #<- Minimum numbers of data points in terminal nodes.
+  #maxnodes = NULL,    #<- Limits the number of maximum splits. 
+  importance = TRUE,   #<- Should importance of predictors be assessed?
+  #localImp = FALSE,   #<- Should casewise importance measure be computed? (Setting this to TRUE will override importance.)
+  proximity = FALSE,    #<- Should a proximity measure between rows be calculated?
+  norm.votes = TRUE,   #<- If TRUE (default), the final result of votes are expressed as fractions. If FALSE, raw vote counts are returned (useful for combining results from different runs).
+  do.trace = TRUE,     #<- If set to TRUE, give a more verbose output as randomForest is run.
+  keep.forest = TRUE,  #<- If set to FALSE, the forest will not be retained in the output object. If xtest is given, defaults to FALSE.
+  keep.inbag = TRUE   #<- Should an n by ntree matrix be returned that keeps track of which samples are in-bag in which trees? 
+)
+```
+
+# First look model performance
+
+## Confusion matrix
+```{r}
+stroke_rf_4$confusion
+
+stroke_rf_4_accuracy = sum(stroke_rf_4$confusion[row(stroke_rf_4$confusion) == col(stroke_rf_4$confusion)]) / sum(stroke_rf_4$confusion)*100
+```
+
+The random forest model with only four trees accuracy was `r as.integer(stroke_rf_4_accuracy)`%
+
+And our larger tree model gave an accuracy of `r as.integer(stroke_rf_accuracy)`%
+
+Guessing would give us an accuracy of `r as.integer(prob_guessing*100)%`
+
+## Importance
+```{r}
+varImpPlot(
+  stroke_rf_4, 
+  sort=TRUE,
+  scale=TRUE
+)
+```
+
+The top five for MDA are: Age, BMI, Gender, Heart Disease, and Hyper Tension.
+
+What is interesting is that we are now seeing a negative or zero impact from some of the parameters, we will remove these and compare below. The largets parameters to consider later are Age, Gender and Heart Disease.
+
+The top three for MDG are: Glucose Level, Age, and BMI. All other parameters have a score of 0.5 or lower and will not be considered.
+
+## Visualize random forest results
+```{r}
+stroke_rf_4_error = data.frame(1:nrow(stroke_rf_4$err.rate), stroke_rf_4$err.rate)
+
+colnames(stroke_rf_4_error) = c("Number of Trees", "Out of the Box", "No Stroke", "Stroke")
+
+stroke_rf_4_error$Diff <- stroke_rf_4_error$Stroke-stroke_rf_4_error$`No Stroke`
+
+datatable(stroke_rf_4_error)
+
+fig <- plot_ly(x=stroke_rf_4_error$`Number of Trees`, y=stroke_rf_4_error$Diff,name="Diff", type = 'scatter', mode = 'lines')
+fig <- fig %>% add_trace(y=stroke_rf_4_error$`Out of the Box`, name="OOB_Er")
+fig <- fig %>% add_trace(y=stroke_rf_4_error$`No Stroke`, name="No Stroke")
+fig <- fig %>% add_trace(y=stroke_rf_4_error$Stroke, name="Stroke")
+
+fig
+
+
+```
+
+# Build a random forest with only the most valuable parameters
+```{r}
+
+stroke_factor_training_data_lean = stroke_factor_training_data %>%
+  select(age, gender, heart_disease, bmi, avg_glucose_level, stroke)
+stroke_factor_testing_data_lean = stroke_factor_testing_data %>%
+  select(age, gender, heart_disease, bmi, avg_glucose_level, stroke)
+
+# create the random forest
+stroke_rf_lean = randomForest(
+  as.factor(stroke)~.,
+  stroke_factor_training_data_lean,
+  #y = NULL,           #<- A response vector. This is unnecessary because we're specifying a response formula.
+  #subset = NULL,      #<- This is unnecessary because we're using all the rows in the training data set.
+  #xtest = NULL,       #<- This is already defined in the formula by the ".".
+  #ytest = NULL,       #<- This is already defined in the formula by "parent".
+  ntree = 4,        #<- Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets classified at least a few times.
+  mtry = mytry_tune(stroke_factor_training_data_lean),            #<- Number of variables randomly sampled as candidates at each split. Default number for classification is sqrt(# of variables). Default number for regression is (# of variables / 3).
+  replace = TRUE,      #<- Should sampled data points be replaced.
+  #classwt = NULL,     #<- Priors of the classes. Use this if you want to specify what proportion of the data SHOULD be in each class. This is relevant if your sample data is not completely representative of the actual population 
+  #strata = NULL,      #<- Not necessary for our purpose here.
+  sampsize = 100,      #<- Size of sample to draw each time.
+  nodesize = 10,        #<- Minimum numbers of data points in terminal nodes.
+  #maxnodes = NULL,    #<- Limits the number of maximum splits. 
+  importance = TRUE,   #<- Should importance of predictors be assessed?
+  #localImp = FALSE,   #<- Should casewise importance measure be computed? (Setting this to TRUE will override importance.)
+  proximity = FALSE,    #<- Should a proximity measure between rows be calculated?
+  norm.votes = TRUE,   #<- If TRUE (default), the final result of votes are expressed as fractions. If FALSE, raw vote counts are returned (useful for combining results from different runs).
+  do.trace = TRUE,     #<- If set to TRUE, give a more verbose output as randomForest is run.
+  keep.forest = TRUE,  #<- If set to FALSE, the forest will not be retained in the output object. If xtest is given, defaults to FALSE.
+  keep.inbag = TRUE   #<- Should an n by ntree matrix be returned that keeps track of which samples are in-bag in which trees? 
+)
+```
+# First look model performance
+
+## Confusion matrix
+```{r}
+stroke_rf_lean$confusion
+
+stroke_rf_lean_accuracy = sum(stroke_rf_lean$confusion[row(stroke_rf_lean$confusion) == col(stroke_rf_lean$confusion)]) / sum(stroke_rf_lean$confusion)*100
+```
+
+This random forest model with a smaller number of paramters gave an accuracy of `r as.integer(stroke_rf_lean_accuracy)`%
+
+The random forest model with only four trees accuracy was `r as.integer(stroke_rf_4_accuracy)`%
+
+And our larger tree model gave an accuracy of `r as.integer(stroke_rf_accuracy)`%
+
+Guessing would give us an accuracy of `r as.integer(prob_guessing*100)%`
+
+## Importance
+```{r}
+varImpPlot(
+  stroke_rf_lean, 
+  sort=TRUE,
+  scale=TRUE
+)
+```
+
+# How do the models do on the testing data
+
+## Largest Model
+```{r}
+
+# create predictions
+large_predict = predict(
+  stroke_rf,
+  stroke_factor_testing_data,
+  type="response",
+  predict.all = TRUE,
+  proximity = TRUE
+)
+
+```
+
+
+## Smaller Tree Model
+```{r}
+smaller_predict = predict(
+  stroke_rf_4,
+  stroke_factor_testing_data,
+  type="response",
+  predict.all = TRUE,
+  proximity = TRUE
+)
+```
+
+
+## Lean Model
+```{r}
+lean_predict = predict(
+  stroke_rf_lean,
+  stroke_factor_testing_data_lean,
+  type="response",
+  predict.all = TRUE,
+  proximity = TRUE
+)
+```
+
+## Aggregate Data
+```{r}
+
+# combine all predictions
+predictions = data.frame(
+  stroke_factor_testing_data$stroke,
+  large_predict$predicted$aggregate,
+  smaller_predict$predicted$aggregate,
+  lean_predict$predicted$aggregate
+)
+
+# Rename the columns
+colnames(predictions) = c("Stroke Ground Truth", "Large Prediction", "Small Prediction", "Lean Prediction")
+
+# display the predictions
+datatable(predictions)
+
+```
+
+## Confusion Matrix
+```{r}
+table(predictions$Reference, predictions$`Large Prediction`)
+table(predictions$Reference, predictions$`Small Prediction`)
+table(predictions$Reference, predictions$`Lean Prediction`)
+
+```
+
+Y axis is ground truth, x axis is predictions
+
+We see that we are never predicting that a person has a stroke, and have the same predictions for each model.
+
+With this final analysis, we can see that while the model is quite accurate (when looking at strickly the numbers), it is unable to give reference for when a patient may have a stroke, which is the entire purpose of the technology.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
