@@ -1,5 +1,5 @@
 ---
-title: "Important Factors in Predicting a Stroke"
+title: "Final Project - Stroke Predictions"
 author: "Group 10"
 output: 
   prettydoc::html_pretty:
@@ -61,7 +61,7 @@ The CDC indicates that high blood pressure, high cholesterol, smoking, obesity, 
 
 
 # Exploratory Data Analysis
-•	Exploratory Data Analysis – Initial summary statistics and graphs with an emphasis on variables you believe to be important for your analysis. 
+
 
 Exploratory data analysis is important for us to better understand this dataset before we go into deeper analysis. We want to identify the most important variables and variables that aren't as useful. We also want to identify possible outliers, missing values, and understand the relationship between variables. Ultimately, the goal is to maximize our insight of the dataset to minimize potential error that could occur later in the process.
 
@@ -75,11 +75,6 @@ A first look at the data:
 str(stroke)
 ```
 
-The dataset contains data from 5110 patients. It is pretty evenly split with gender, 59% female and 41% male. The binary variables hypertension and heart disease are much less balanced, with only 9.75% of the patients having hypertension and 5.40% of them having heart disease. According to the American Heart Association, almost half of adults in the U.S. have hypertension, or chronically high blood pressure, which is directly related to heart disease. So, the dataset may not accurately represent the population, but it could still be used to analyze predictive factors for strokes. The prevalence of stroke in this dataset is 4.87%.
-
-
--which columns have missing values?
-
 
 #### Summary Statistics
 
@@ -88,7 +83,7 @@ Initial summary statistics, after re-classing some of the variables:
 ```{r, echo = FALSE}
 # changing variable types for analysis and replacing missing values
 stroke$bmi <- gsub("N/A", NA, stroke$bmi)
-stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status)
+stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status) #replacing unknown with NA is smoking status
 stroke$gender <- as.factor(stroke$gender)
 stroke$bmi <- as.numeric(stroke$bmi)
 stroke$age <- as.numeric(stroke$age)
@@ -97,9 +92,15 @@ stroke$ever_married <- as.factor(stroke$ever_married)
 stroke$work_type <- as.factor(stroke$work_type)
 stroke$Residence_type <- as.factor(stroke$Residence_type)
 stroke$smoking_status <- as.factor(stroke$smoking_status)
+stroke$hypertension <- as.factor(stroke$hypertension)
+stroke$heart_disease <- as.factor(stroke$heart_disease)
+stroke$stroke <- as.factor(stroke$stroke)
 
 summary(stroke)
+
 ```
+
+The dataset contains data from 5110 patients. It is pretty evenly split with gender, 59% female and 41% male. The binary variables hypertension and heart disease are much less balanced, with only 9.75% of the patients having hypertension and 5.40% of them having heart disease. According to the American Heart Association, almost half of adults in the U.S. have hypertension, or chronically high blood pressure, which is directly related to heart disease. So, the dataset may not accurately represent the population, but it could still be used to analyze predictive factors for strokes. The prevalence of stroke in this dataset is 4.87%.
 
 
 The dataset is pretty evenly split among gender.
@@ -109,7 +110,7 @@ stroke <- as_tibble(stroke)
 barplot(table(stroke$gender))
 ```
 
-The two variables were are most interested in are not very balanced. On the left is a histogram for hypertension, and on the right is one for heart disease.As mentioned before, only 9.75% of the patients having hypertension and 5.40% of them having heart disease
+The two variables we are most interested in are not very balanced. On the left is a histogram for hypertension, and on the right is one for heart disease. As mentioned before, only 9.75% of the patients have hypertension and 5.40% of them have heart disease. This could lead to issues in creating predictive models later.
 
 ```{r, echo = FALSE, figures-side, fig.show = "hold", out.width="50%"}
 stroke <- as_tibble(stroke)
@@ -130,10 +131,13 @@ barplot(table(stroke$bmi))
 
 The average BMI is 28.89, which is classified as overweight. Being overweight or obese increases your risk for heart disease and stroke (but then again BMI isn't a completely accurate measurement). Based on the information from the CDC, we would expect patients who smoke or even formerly smoked or with higher BMIs would have a higher incidence of stroke.
 
+
 #### Visualizations
 
+Next we wanted to look at some visualizations of numeric variables we think will be important in stroke predictions, other than the important binary variables like hypertension and heart disease.
 
-```{r, echo = FALSE}
+
+```{r, echo = FALSE, message = FALSE,warning = FALSE}
 # plotting the distribution of bmi based on smoking status 
 
 # plotting distribution of bmi based on hypertension 
@@ -142,10 +146,71 @@ The average BMI is 28.89, which is classified as overweight. Being overweight or
 
 #plotting distribution of bmi based on incidence of stroke?
 
+#plotting smoking status vs glucose level?
+
 # strip plots?
+
+# plotting bmi with stroke incidence
+ggplot(stroke, 
+       aes(y = stroke,
+           x = bmi,
+           color = stroke)) +
+   geom_jitter(alpha = 0.2,
+              width = .1) + 
+  geom_boxplot(size = 1,
+               outlier.shape = 1,
+               outlier.color = "black",
+               outlier.size = 3,
+               color="black",
+               alpha=0.2) +
+  labs(title = "BMI distribution with Stroke Incidence")
+```
+
+The bmi vs. stroke incidence chart shows that the average bmi for patients who had a stroke was higher than those who didn't. 
+
+
+Diabetes is also another risk factor for stroke. Although this dataset does not have presence of diabetes as a variable, it does have average glucose level, which can be used to classify if patients are diabetic. The American Diabetes Association classifies normal blood glucose levels as less than 100 mg/dl, prediabetes is 100 mg/dl to 125 mg/dl, and diabetes is 126 mg/dl or higher. Looking at a plot of average blood glucose levels 
+
+```{r,echo = FALSE, message = FALSE}
+#plotting avg. glucose level with stroke incidence
+ggplot(stroke, 
+       aes(y = stroke,
+           x = avg_glucose_level,
+           color = stroke)) +
+   geom_jitter(alpha = 0.2,
+              width = .1) + 
+  geom_boxplot(size = 1,
+               outlier.shape = 1,
+               outlier.color = "black",
+               outlier.size = 3,
+               color="black",
+               alpha=0.2) +
+  labs(title = " Average Glucose Level Distribution with Stroke Incidence")
 ```
 
 
+This graph doesn't give quite as clear of a result as the previous one, mainly because the distribution of the data is a little strange. There's a lot of people with somewhat normal levels and then a lot of people with high levels, but not as many in between. The average glucose level was still higher for patients who had a stroke.
+
+
+Another numeric variable that would be interestng to look at would be age, as the risk for stroke increases with age.
+
+```{r, echo = FALSE, message = FALSE}
+#plotting age vs. stroke incidence
+ggplot(stroke, 
+       aes(y = stroke,
+           x = age,
+           color = stroke)) +
+   geom_jitter(alpha = 0.2,
+              width = .1) + 
+
+  labs(title = "Age Distribution with Stroke Incidence")
+```
+
+
+The scatterplot cleary indicates that those patients who had strokes were older, 40+ years on average.
+
+
+As confirmed by some of the research we did, the most at-risk patient would be someone with hypertension and heart-disease, with a high bmi and average glucose level, who smokes, and who is older.
 
 
 
@@ -177,7 +242,9 @@ stroke_correlations <- cor(stroke)
 datatable(stroke_correlations)
 ```
 
+
 Something that would be interesting to look at would be the correlation between variables, to see if any of the variables vary in similar ways.
+
 
 ```{r, echo = FALSE, message = FALSE}
 install.packages("corrplot")
@@ -186,7 +253,8 @@ corrplot(stroke_correlations, type = "upper", order = "hclust",
          tl.col = "black", tl.srt = 45)
 ```
 
-This is a visualization of the correlation plot, which confirms that no variables appear to be highly correlated with one another. The dark blue diagonal circles are just the variables correlated with themselves.
+
+This is a visualization of the correlation plot, which confirms that no variables appear to be highly correlated with one another. There is small correlations between age and hypertension, heart disease, high glucose levels, and stroke incidence. Some of the common comorbid conditions also have smaller correlation levels, like heart disease, stroke, hypertension, and average glucose level.
 
 
 # Methods and Evaluation
@@ -212,6 +280,8 @@ Do evaluation with each method, not all after
 # Future Work
 •	Future work – What additional analysis is needed or what limited your analysis on this project.
 
+-the dataset was kind of unbalanced
+
 
 # References 
 
@@ -224,6 +294,9 @@ https://www.cdc.gov/bloodpressure/facts.htm#:~:text=Nearly%20half%20of%20adults%
 https://www.sciencedaily.com/releases/2019/01/190131084238.htm#:~:text=01%2F190131084238.htm-,At%20least%2048%20percent%20of%20all%20adults%20in%20the%20United,according%20to%20the%20latest%20statistics.
 
 https://towardsdatascience.com/exploratory-data-analysis-in-r-for-beginners-fe031add7072
+
+https://www.diabetes.org/a1c/diagnosis
+
 
 
 
