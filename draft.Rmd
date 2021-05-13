@@ -8,6 +8,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
+options(knitr.duplicate.label = "allow")
 knitr::opts_chunk$set(echo = TRUE)
 library(prettydoc)
 library(ggplot2)
@@ -67,8 +68,6 @@ Exploratory data analysis is important for us to better understand this dataset 
 
 #### First Glance 
 
-The dataset contains data from 5110 patients. It is pretty evenly split with gender, 59% female and 41% male. The binary variables hypertension and heart disease are much less balanced, with only 9.75% of the patients having hypertension and 5.40% of them having heart disease. According to the American Heart Association, almost half of adults in the U.S. have hypertension, or chronically high blood pressure, which is directly related to heart disease. So, the dataset may not accurately represent the population, but it could still be used to analyze predictive factors for strokes. The prevalence of stroke in this dataset is 4.87%.
-
 
 A first look at the data:
 
@@ -76,13 +75,78 @@ A first look at the data:
 str(stroke)
 ```
 
+The dataset contains data from 5110 patients. It is pretty evenly split with gender, 59% female and 41% male. The binary variables hypertension and heart disease are much less balanced, with only 9.75% of the patients having hypertension and 5.40% of them having heart disease. According to the American Heart Association, almost half of adults in the U.S. have hypertension, or chronically high blood pressure, which is directly related to heart disease. So, the dataset may not accurately represent the population, but it could still be used to analyze predictive factors for strokes. The prevalence of stroke in this dataset is 4.87%.
 
--initial summary statistics
 
 -which columns have missing values?
 
--look at correlations between variables
--heart disease and hypertension?
+
+#### Summary Statistics
+
+Initial summary statistics, after re-classing some of the variables:
+
+```{r, echo = FALSE}
+# changing variable types for analysis and replacing missing values
+stroke$bmi <- gsub("N/A", NA, stroke$bmi)
+stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status)
+stroke$gender <- as.factor(stroke$gender)
+stroke$bmi <- as.numeric(stroke$bmi)
+stroke$age <- as.numeric(stroke$age)
+stroke$avg_glucose_level <- as.numeric(stroke$avg_glucose_level)
+stroke$ever_married <- as.factor(stroke$ever_married)
+stroke$work_type <- as.factor(stroke$work_type)
+stroke$Residence_type <- as.factor(stroke$Residence_type)
+stroke$smoking_status <- as.factor(stroke$smoking_status)
+
+summary(stroke)
+```
+
+
+The dataset is pretty evenly split among gender.
+
+```{r, echo = FALSE}
+stroke <- as_tibble(stroke)
+barplot(table(stroke$gender))
+```
+
+The two variables were are most interested in are not very balanced. On the left is a histogram for hypertension, and on the right is one for heart disease.As mentioned before, only 9.75% of the patients having hypertension and 5.40% of them having heart disease
+
+```{r, echo = FALSE, figures-side, fig.show = "hold", out.width="50%"}
+stroke <- as_tibble(stroke)
+barplot(table(stroke$hypertension))
+barplot(table(stroke$heart_disease))
+```
+
+
+ 
+Smoking and BMI could also be of interest.
+
+```{r, echo = FALSE, fig.show = "hold", out.width="50%"}
+stroke <- as_tibble(stroke)
+barplot(table(stroke$smoking_status))
+barplot(table(stroke$bmi))
+```
+
+
+The average BMI is 28.89, which is classified as overweight. Being overweight or obese increases your risk for heart disease and stroke (but then again BMI isn't a completely accurate measurement). Based on the information from the CDC, we would expect patients who smoke or even formerly smoked or with higher BMIs would have a higher incidence of stroke.
+
+#### Visualizations
+
+
+```{r, echo = FALSE}
+# plotting the distribution of bmi based on smoking status 
+
+# plotting distribution of bmi based on hypertension 
+
+#plotting sitribution of bmi based on heart disease
+
+#plotting distribution of bmi based on incidence of stroke?
+
+# strip plots?
+```
+
+
+
 
 
 #### Variable Correlation
