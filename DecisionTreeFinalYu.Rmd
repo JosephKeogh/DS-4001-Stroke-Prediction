@@ -36,9 +36,7 @@ stroke <- stroke %>%
 # https://www.cdc.gov/healthyweight/assessing/bmi/adult_bmi/index.html
 
 stroke <- stroke %>%
-  mutate(glucose_state = ifelse(avg_glucose_level <= 140, "normal", "prediabetic"))
-
-# https://www.mayoclinic.org/diseases-conditions/diabetes/diagnosis-treatment/drc-20371451#:~:text=A%20blood%20sugar%20level%20less,mmol%2FL)%20indicates%20prediabetes.
+  mutate(glucose_state = ifelse(avg_glucose_level <= 125, "normal", "diabetic"))
 
 stroke <- stroke %>%
   mutate(age_state = ifelse(age <= 38.4, "young", "old"))
@@ -47,10 +45,9 @@ stroke <- stroke %>%
 
 
 stroke_positive <- subset(stroke, stroke == 1)
-
 stroke_negative <- subset(stroke, stroke == 0)
 set.seed(1980)
-stroke_sample <- stroke_negative[sample(1:nrow(stroke_negative), size = 500),]
+stroke_sample <- stroke_negative[sample(1:nrow(stroke_negative), size = 180),]
 stroke_final <- rbind(stroke_sample, stroke_positive)
 stroke_final <- stroke_final[-c(1, 2, 3, 7, 9, 10, 11)]
 
@@ -63,12 +60,10 @@ stroke_final <- as_tibble(stroke_final)
 # Creation of Test Set
 
 ```{r}
-set.seed(1950)
+set.seed(1980)
 stroke_break <- createDataPartition(stroke_final$stroke, times = 1, p = 0.8, list = FALSE)
 training_stroke <- stroke_final[stroke_break,]
-
 test_stroke <- stroke_final[-stroke_break,]
-
 
 ```
 
@@ -76,7 +71,7 @@ test_stroke <- stroke_final[-stroke_break,]
 ```{r}
 mean(as.numeric(stroke_final$stroke))-1
 
-# 0.2647059
+# 0.5
 ```
 
 # Building the Model
@@ -108,6 +103,17 @@ stroke_predict = predict(tree_stroke, test_stroke, type = "class")
 tree_matrix <- confusionMatrix(as.factor(stroke_predict), as.factor(test_stroke$stroke), positive = "1", dnn = c("Prediction", "Actual"), mode = "sens_spec")
 
 tree_matrix
+```
+
+# Evaluation Metrics
+```{r}
+stroke_prob <- predict(tree_stroke, newdata = test_stroke, type = "prob")
+stroke_prob <- as.tibble(stroke_prob)
+stroke_eval <- data.frame(pred_class = stroke_predict, pred_prob = stroke_prob$`1`, target = as.numeric(test_stroke$stroke))
+LogLoss(as.numeric(stroke_eval$pred_prob), as.numeric(test_stroke$stroke)) # 2.223
+
+F1_Score(as.numeric(stroke_eval$pred_class), as.numeric(test_stroke$stroke)) 
+# 0.5483871
 ```
 
 # ROC Curve
