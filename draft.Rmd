@@ -1,9 +1,9 @@
 ---
-title: "First Draft"
+title: "Important Factors in Predicting a Stroke"
 author: "Group 10"
 output: 
   prettydoc::html_pretty:
-    theme: hpstr
+    theme: leonids
     highlight: github
 ---
 
@@ -31,7 +31,14 @@ stroke = read_csv("stroke.csv")
 
 How can we most accurately predict if someone will have a stroke and what are the most important predictive factors?
 
-Being able to answer this question would provide many benefits. According to the CDC, strokes are one of the leading causes of death in the U.S. They are hard to deal with, and being able to predict and therefore prevent them would be useful. If high-risk individuals could be identified, they could also be informed of warning signs of stroke to look out for, as stroke survival rates are much higher when emergency treatment begins quickly. 
+Being able to answer this question would provide many benefits. According to the CDC, strokes are one of the leading causes of death in the U.S. The World Health Organization also reports stroke as one of the leading causes of death worldwide. They are hard to deal with, and being able to predict and therefore prevent them would be useful. If high-risk individuals could be identified, they could also be informed of warning signs of stroke to look out for, as stroke survival rates are much higher when emergency treatment begins quickly. 
+
+```{r fig.width=6, fig.height=6,echo=FALSE,fig.align="center"}
+library(png)
+library(grid)
+img <- readPNG("death_worlwide.png")
+ grid.raster(img)
+```
 
 Being able to accurately predict strokes and therefore prevent them would also have economic benefits. According to the CDC, stroke-related costs in the United States were nearly $46 billion between 2014 and 2015, including the cost of health care services, medicines to treat stroke, and missed days of work. Strokes are also one of the leading causes of serious long-term disability. Strokes reduce mobility in more than 50% of stroke survivors over the age of 65.
 
@@ -55,7 +62,68 @@ The CDC indicates that high blood pressure, high cholesterol, smoking, obesity, 
 # Exploratory Data Analysis
 •	Exploratory Data Analysis – Initial summary statistics and graphs with an emphasis on variables you believe to be important for your analysis. 
 
+Exploratory data analysis is important for us to better understand this dataset before we go into deeper analysis. We want to identify the most important variables and variables that aren't as useful. We also want to identify possible outliers, missing values, and understand the relationship between variables. Ultimately, the goal is to maximize our insight of the dataset to minimize potential error that could occur later in the process.
+
+
+#### First Glance 
+
 The dataset contains data from 5110 patients. It is pretty evenly split with gender, 59% female and 41% male. The binary variables hypertension and heart disease are much less balanced, with only 9.75% of the patients having hypertension and 5.40% of them having heart disease. According to the American Heart Association, almost half of adults in the U.S. have hypertension, or chronically high blood pressure, which is directly related to heart disease. So, the dataset may not accurately represent the population, but it could still be used to analyze predictive factors for strokes. The prevalence of stroke in this dataset is 4.87%.
+
+
+A first look at the data:
+
+```{r, echo = FALSE}
+str(stroke)
+```
+
+
+-initial summary statistics
+
+-which columns have missing values?
+
+-look at correlations between variables
+-heart disease and hypertension?
+
+
+#### Variable Correlation
+
+
+```{r, echo = FALSE, results = FALSE}
+# Correlation 
+stroke <- read.csv("stroke.csv")
+stroke$bmi <- gsub("N/A", NA, stroke$bmi)
+stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status)
+stroke <- na.omit(stroke)
+stroke <- stroke[ -c(1)]
+str(stroke)
+
+stroke$gender <- as.factor(stroke$gender)
+stroke$ever_married <- as.factor(stroke$ever_married)
+stroke$work_type <- as.factor(stroke$work_type)
+stroke$Residence_type <- as.factor(stroke$Residence_type)
+stroke$smoking_status <- as.factor(stroke$smoking_status)
+
+
+stroke <- lapply(stroke, function(x) as.numeric(x))
+
+stroke <- as_tibble(stroke)
+
+
+stroke_correlations <- cor(stroke)
+datatable(stroke_correlations)
+```
+
+Something that would be interesting to look at would be the correlation between variables, to see if any of the variables vary in similar ways.
+
+```{r, echo = FALSE, message = FALSE}
+install.packages("corrplot")
+library(corrplot)
+corrplot(stroke_correlations, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+```
+
+This is a visualization of the correlation plot, which confirms that no variables appear to be highly correlated with one another. The dark blue diagonal circles are just the variables correlated with themselves.
+
 
 # Methods and Evaluation
 Do evaluation with each method, not all after
@@ -90,6 +158,9 @@ https://www.kaggle.com/fedesoriano/stroke-prediction-dataset
 https://www.cdc.gov/bloodpressure/facts.htm#:~:text=Nearly%20half%20of%20adults%20in,are%20taking%20medication%20for%20hypertension.&text=Only%20about%201%20in%204,have%20their%20condition%20under%20control.
 
 https://www.sciencedaily.com/releases/2019/01/190131084238.htm#:~:text=01%2F190131084238.htm-,At%20least%2048%20percent%20of%20all%20adults%20in%20the%20United,according%20to%20the%20latest%20statistics.
+
+https://towardsdatascience.com/exploratory-data-analysis-in-r-for-beginners-fe031add7072
+
 
 
 
