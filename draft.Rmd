@@ -52,9 +52,10 @@ We found a dataset on Kaggle to use that includes records from both ischemic and
 The CDC indicates that high blood pressure, high cholesterol, smoking, obesity, and diabetes are leading causes of stroke. From this data analysis, we would therefore expect to see that smoking status, BMI, hypertension, and heart disease would be the most important factors in predicting stroke. 
 
 
-
 # Exploratory Data Analysis
 •	Exploratory Data Analysis – Initial summary statistics and graphs with an emphasis on variables you believe to be important for your analysis. 
+
+The dataset contains data from 5110 patients. It is pretty evenly split with gender, 59% female and 41% male. The binary variables hypertension and heart disease are much less balanced, with only 9.75% of the patients having hypertension and 5.40% of them having heart disease. According to the American Heart Association, almost half of adults in the U.S. have hypertension, or chronically high blood pressure, which is directly related to heart disease. So, the dataset may not accurately represent the population, but it could still be used to analyze predictive factors for strokes. The prevalence of stroke in this dataset is 4.87%.
 
 # Methods and Evaluation
 Do evaluation with each method, not all after
@@ -85,5 +86,11 @@ Do evaluation with each method, not all after
 https://www.cdc.gov/stroke/facts.htm
 
 https://www.kaggle.com/fedesoriano/stroke-prediction-dataset
+
+https://www.cdc.gov/bloodpressure/facts.htm#:~:text=Nearly%20half%20of%20adults%20in,are%20taking%20medication%20for%20hypertension.&text=Only%20about%201%20in%204,have%20their%20condition%20under%20control.
+
+https://www.sciencedaily.com/releases/2019/01/190131084238.htm#:~:text=01%2F190131084238.htm-,At%20least%2048%20percent%20of%20all%20adults%20in%20the%20United,according%20to%20the%20latest%20statistics.
+
+
 
 
