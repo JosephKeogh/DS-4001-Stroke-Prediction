@@ -559,8 +559,8 @@ set.seed(1)
 
 ### Prep the data
 ```{r, echo=TRUE}
-stroke = stroke %>%
-  select(-id)
+
+stroke = read_csv("stroke.csv")
 
 # make all parameters factors
 stroke_factor = as.data.frame(
@@ -1004,6 +1004,50 @@ It is possible that our dataset is not ethically or reasonably sourced. We of co
 
   Our findings are not surprising. We found that the there are no incredible factors that contribute to a person having a stroke based on the dataset we had available. We saw that overall health was the largest contributor coupled with age. Contributing factors such as high blood sugar, heart disease, and bmi (overweight) all affected the patient's likelyhood of stroke.
   We recommend that our tools not be used to predict a patient's risk of having a stroke, but rather as a tool for doctors to help explain how being healthy overall will reduce the individual's risk of a stroke.
+  
+## Overall Health
+```{r, echo=TRUE}
+# create data set
+stroke_single = stroke_factor %>%
+  select(hypertension, heart_disease, avg_glucose_level, smoking_status, stroke) %>%
+  mutate(hypertension = as.factor(hypertension)) %>%
+  mutate(stroke = as.factor(stroke)) %>%
+  mutate(heart_disease = as.factor(heart_disease)) 
+
+stroke_single$avg_glucose_level <- factor(ifelse(as.double(stroke_factor$avg_glucose_level)>=106.15, "high", "low"))
+
+stroke_single$smoking_status = fct_collapse(
+  stroke_factor$smoking_status,
+  "1" = c("formerly smoked", "smokes"),
+  "0" = c("never smoked", "Unknown")
+)
+
+stroke_single = stroke_single %>%
+  mutate(hypertension = as.numeric(hypertension)-1) %>%
+  mutate(heart_disease = as.numeric(heart_disease)-1) %>%
+  mutate(avg_glucose_level = as.numeric(avg_glucose_level)-1) %>%
+  mutate(smoking_status = as.numeric(smoking_status)-1) %>%
+  mutate(unhealthy = hypertension + heart_disease + avg_glucose_level + smoking_status)
+
+stroke_single = stroke_single %>%
+  mutate(unhealthy = 
+           if_else(
+              unhealthy >=1, "1", "0",
+              
+  )
+  ) %>%
+  mutate(unhealthy=as.factor(unhealthy)) %>%
+  select(unhealthy, stroke)
+
+datatable(stroke_single)
+
+correlation = cor.test(as.numeric(stroke_single$stroke), as.numeric(stroke_single$unhealthy), method="pearson")
+correlation
+```
+
+The correlation between being 'unhealthy' and having a stroke is `r correlation$estimate`
+
+This is strange as we would expect there to be a positive correlation, not a negative one. This goes to show that we cannot always trust simple correlation analysis.
 
 # Future Work
 
