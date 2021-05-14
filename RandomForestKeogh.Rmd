@@ -17,6 +17,7 @@ library(tidyverse)
 library(ggplot2)
 library(DT)
 library(plotly)
+library(caret)
 ```
 
 ```{r}
@@ -289,9 +290,7 @@ varImpPlot(
 
 # How do the models do on the testing data
 
-## Largest Model
 ```{r}
-
 # create predictions
 large_predict = predict(
   stroke_rf,
@@ -301,11 +300,7 @@ large_predict = predict(
   proximity = TRUE
 )
 
-```
-
-
-## Smaller Tree Model
-```{r}
+# create predictions
 smaller_predict = predict(
   stroke_rf_4,
   stroke_factor_testing_data,
@@ -313,11 +308,8 @@ smaller_predict = predict(
   predict.all = TRUE,
   proximity = TRUE
 )
-```
 
-
-## Lean Model
-```{r}
+# create predictions
 lean_predict = predict(
   stroke_rf_lean,
   stroke_factor_testing_data_lean,
@@ -327,15 +319,13 @@ lean_predict = predict(
 )
 ```
 
-## Aggregate Data
 ```{r}
-
 # combine all predictions
 predictions = data.frame(
-  stroke_factor_testing_data$stroke,
-  large_predict$predicted$aggregate,
-  smaller_predict$predicted$aggregate,
-  lean_predict$predicted$aggregate
+  as.factor(stroke_factor_testing_data$stroke),
+  as.factor(large_predict$predicted$aggregate),
+  as.factor(smaller_predict$predicted$aggregate),
+  as.factor(lean_predict$predicted$aggregate)
 )
 
 # Rename the columns
@@ -344,16 +334,88 @@ colnames(predictions) = c("Stroke Ground Truth", "Large Prediction", "Small Pred
 # display the predictions
 datatable(predictions)
 
+plt = predictions %>%
+  ggplot(
+    aes(
+      x=as.numeric(row.names(predictions)),
+      y=`Stroke Ground Truth`,
+      color="black"
+    )
+  )+
+  geom_point()+
+  geom_point(
+    aes(
+      y=`Large Prediction`,
+      color='red'
+    ),
+  )+
+  geom_point(
+    aes(
+      y=`Small Prediction`,
+      color='blue'
+    ),
+  )+
+  geom_point(
+    aes(
+      y=`Lean Prediction`,
+      color='orange'
+    ),
+  )+
+  theme_bw()+
+  scale_color_discrete(
+    name = "Y series", 
+    labels = c("Ground Truth", "Large Model","Small Model","Lean Model")
+  )+
+  labs(
+    x="Patient ID",
+    y="Stroke 1=Yes"
+  )
+
+ggplotly(plt)
+
 ```
 
-## Confusion Matrix
+## Confusion Matrix and Model Statistics
+
+### Large Predictions
 ```{r}
-table(predictions$Reference, predictions$`Large Prediction`)
-table(predictions$Reference, predictions$`Small Prediction`)
-table(predictions$Reference, predictions$`Lean Prediction`)
+confusionMatrix(
+  predictions$`Large Prediction`,
+  as.factor(stroke_factor_testing_data$stroke),
+  positive = "1", 
+  dnn=c("Prediction", "Actual"), 
+  mode = "everything"
+)
 
 ```
 
+Extremely low kappa
+
+### Small Predictions
+```{r}
+confusionMatrix(
+  predictions$`Small Prediction`,
+  as.factor(stroke_factor_testing_data$stroke),
+  positive = "1", 
+  dnn=c("Prediction", "Actual"), 
+  mode = "everything"
+)
+
+```
+
+
+
+### Lean Predictions
+```{r}
+confusionMatrix(
+  predictions$`Lean Prediction`,
+  as.factor(stroke_factor_testing_data$stroke),
+  positive = "1", 
+  dnn=c("Prediction", "Actual"), 
+  mode = "everything"
+)
+
+```
 Y axis is ground truth, x axis is predictions
 
 We see that we are never predicting that a person has a stroke, and have the same predictions for each model.
@@ -361,7 +423,45 @@ We see that we are never predicting that a person has a stroke, and have the sam
 With this final analysis, we can see that while the model is quite accurate (when looking at strickly the numbers), it is unable to give reference for when a patient may have a stroke, which is the entire purpose of the technology.
 
 
+## ROC Curve
+```{r}
 
+stroke_rf_predictions = as.tibble(as.numeric(as.character(stroke_rf$votes[,2])))
+stroke_rf_actual = tibble(as.factor(stroke_factor_training_data$stroke))
+
+stroke_prediction_comparison = prediction(
+  stroke_rf_predictions,
+  stroke_rf_actual,
+)
+
+stroke_rf_performance = performance(
+  stroke_prediction_comparison,
+  measure = "tpr",
+  x.measure = "fpr"
+)
+
+stroke_rates = 
+  data.frame(
+    fp = stroke_prediction_comparison@fp,  #<- false positive classification.
+    tp = stroke_prediction_comparison@tp,  #<- true positive classification.
+    tn = stroke_prediction_comparison@tn,  #<- true negative classification.
+    fn = stroke_prediction_comparison@fn
+  )
+colnames(stroke_rates) = c("fp", "tp", "tn", "fn")
+
+tpr = stroke_rates$tp /(stroke_rates$tp + stroke_rates$fn)
+fpr = stroke_rates$fp /(stroke_rates$fp + stroke_rates$tn)
+```
+
+```{r}
+# plot
+plot(fpr,          #<- x-axis value.
+     tpr,          #<- y-axis value.
+     col = "blue",  #<- color of the line. 
+     type = "l")   #<- line type.
+abline(0,1)
+grid(col = "black")
+```
 
 
 
