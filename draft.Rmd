@@ -287,10 +287,6 @@ This is a visualization of the correlation plot, which confirms that no variable
 
 
 # Methods and Evaluation
-Do evaluation with each method, not all after
-  
-•	Methods – Techniques you are using to address your question and the results of those methods.
-•	Evaluation of your model – Select appropriate metrics and explain the output as it relates to your question.
 
 ## KNN
 
@@ -562,6 +558,11 @@ set.seed(1)
 
 stroke = read_csv("stroke.csv")
 
+stroke_positive <- subset(stroke, stroke == 1)
+stroke_negative <- subset(stroke, stroke == 0)
+stroke_sample <- stroke_negative[sample(1:nrow(stroke_negative), size = 180),]
+stroke <- rbind(stroke_sample, stroke_positive)
+
 # make all parameters factors
 stroke_factor = as.data.frame(
   apply(
@@ -648,11 +649,13 @@ varImpPlot(
 
 Mean Decrease Accuracy plot shows how much accuracy the model losses by excluding each variable (top of plot is most important)
 
-The top five for MDA are: Age, BMI, Heart Disease, Marriage, and Hyper Tension with all five being 3 or higher 
+The top five for MDA are: Age, BMI, Heart Disease, Marriage, and Hyper Tension
 
 Gini plot shows how each paramter contributes to the homogeneity of the nodes. Higher the better.
 
-The top five for MDG are: Age, Glucose Level, BMI, Heart Disease and Hyper Tension with the first three being much higher (4-6 times)
+The top five for MDG are: Age, Glucose Level, BMI, Heart Disease and Hyper Tension
+
+We see that age is much more important than the rest of the factors for both plots.
 
 #### Visualize random forest results
 ```{r}
@@ -687,7 +690,7 @@ stroke_rf_4 = randomForest(
   #subset = NULL,      #<- This is unnecessary because we're using all the rows in the training data set.
   #xtest = NULL,       #<- This is already defined in the formula by the ".".
   #ytest = NULL,       #<- This is already defined in the formula by "parent".
-  ntree = 4,        #<- Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets classified at least a few times.
+  ntree = 200,        #<- Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets classified at least a few times.
   mtry = mytry_tune(stroke_factor_training_data),            #<- Number of variables randomly sampled as candidates at each split. Default number for classification is sqrt(# of variables). Default number for regression is (# of variables / 3).
   replace = TRUE,      #<- Should sampled data points be replaced.
   #classwt = NULL,     #<- Priors of the classes. Use this if you want to specify what proportion of the data SHOULD be in each class. This is relevant if your sample data is not completely representative of the actual population 
@@ -729,11 +732,7 @@ varImpPlot(
 )
 ```
 
-The top five for MDA are: Age, BMI, Gender, Heart Disease, and Hyper Tension.
-
-What is interesting is that we are now seeing a negative or zero impact from some of the parameters, we will remove these and compare below. The largets parameters to consider later are Age, Gender and Heart Disease.
-
-The top three for MDG are: Glucose Level, Age, and BMI. All other parameters have a score of 0.5 or lower and will not be considered.
+We are seeing very similar plots than we did before with the larger model.
 
 #### Visualize random forest results
 ```{r}
@@ -772,7 +771,7 @@ stroke_rf_lean = randomForest(
   #subset = NULL,      #<- This is unnecessary because we're using all the rows in the training data set.
   #xtest = NULL,       #<- This is already defined in the formula by the ".".
   #ytest = NULL,       #<- This is already defined in the formula by "parent".
-  ntree = 4,        #<- Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets classified at least a few times.
+  ntree = 200,        #<- Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets classified at least a few times.
   mtry = mytry_tune(stroke_factor_training_data_lean),            #<- Number of variables randomly sampled as candidates at each split. Default number for classification is sqrt(# of variables). Default number for regression is (# of variables / 3).
   replace = TRUE,      #<- Should sampled data points be replaced.
   #classwt = NULL,     #<- Priors of the classes. Use this if you want to specify what proportion of the data SHOULD be in each class. This is relevant if your sample data is not completely representative of the actual population 
