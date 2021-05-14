@@ -5,6 +5,7 @@ output:
   prettydoc::html_pretty:
     theme: leonids
     highlight: github
+    
 ---
 
 ```{r setup, include=FALSE}
@@ -17,14 +18,43 @@ library(dplyr)
 library(tidyverse)
 library(caret)
 library(DT)
+library(tidyverse)
+library(DT)
+library(caret)
+library(class)
+library(ROCR)
+library(MLmetrics)
+library(rio)
+library(plyr)
+library(tidyverse)
+library(rpart)
+library(psych)
+library(pROC)
+library(rpart.plot)
+library(rattle)
+library(caret)
+library(C50)
+library(mlbench)
+library(e1071)
+library(corrplot)
+library(randomForest)
+library(rio)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(DT)
+library(plotly)
+library(caret)
+```
+
+```{r, echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, error=FALSE)
 ```
 
 
 ```{r, echo = FALSE, message = FALSE}
-
 # bring in the data
 stroke = read_csv("stroke.csv")
-
 ```
 
 
@@ -73,6 +103,7 @@ A first look at the data:
 
 ```{r, echo = FALSE}
 str(stroke)
+datatable(stroke)
 ```
 
 
@@ -247,8 +278,6 @@ Something that would be interesting to look at would be the correlation between 
 
 
 ```{r, echo = FALSE, message = FALSE}
-install.packages("corrplot")
-library(corrplot)
 corrplot(stroke_correlations, type = "upper", order = "hclust", 
          tl.col = "black", tl.srt = 45)
 ```
@@ -265,11 +294,698 @@ Do evaluation with each method, not all after
 
 ## KNN
 
-## Clustering
+### Data Cleaning
+Values with the value "N/A" and "Unknown in the columns bmi and smoking_status were replaced with NA.  All NA values were then removed from the dataset.  The first column, id, was also removed.  Since the data is heavily unbalanced with only roughly 5% of the patients being positive for stroke, the data was sampled to make it more balanced.  All 180 patients who had a stroke were joined with a randomly sampled 180 patients from the original dataset that didn't have a stroke.  
 
-## Decision
+```{r, echo = TRUE}
+stroke <- read.csv("stroke.csv")
+stroke$bmi <- gsub("N/A", NA, stroke$bmi)
+stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status)
+stroke <- na.omit(stroke)
+stroke <- stroke[ -c(1)]
+
+stroke$gender <- as.factor(stroke$gender)
+stroke$ever_married <- as.factor(stroke$ever_married)
+stroke$work_type <- as.factor(stroke$work_type)
+stroke$Residence_type <- as.factor(stroke$Residence_type)
+stroke$smoking_status <- as.factor(stroke$smoking_status)
+stroke_positive <- subset(stroke, stroke == 1)
+stroke_negative <- subset(stroke, stroke == 0)
+set.seed(1980)
+stroke_sample <- stroke_negative[sample(1:nrow(stroke_negative), size = 180),]
+stroke_final <- rbind(stroke_sample, stroke_positive)
+
+stroke <- lapply(stroke_final, function(x) as.numeric(x))
+
+stroke <- as_tibble(stroke)
+
+```
+
+### Baserate for Dataset
+
+The base-rate for the data set is 50%.
+
+```{r, echo = FALSE, include = FALSE}
+mean(as.numeric(stroke$stroke))
+```
+
+### Creating Test and Training Set
+
+The test and training set was created with an 80/20 partition where 80% of the data set was used for training and 20% was used for testing. 
+
+```{r, echo = TRUE}
+set.seed(1980)
+stroke_break <- createDataPartition(stroke$stroke, times = 1, p = 0.8, list = FALSE)
+training_stroke <- stroke[stroke_break,]
+
+test_stroke <- stroke[-stroke_break,]
+```
+
+### Choosing the best K value for kNN
+
+Using the elbow method, we determined that a K value of 5 was best for our analysis. 
+
+```{r, echo = FALSE}
+chooseK = function(k, train_set, val_set, train_class, val_class){
+  set.seed(1)
+  class_knn = knn(train = train_set,
+                  test = val_set,
+                  cl = train_class,
+                  k = k,
+                  use.all = T)
+  conf_mat = table(class_knn, val_class)
+  accu = sum(conf_mat[row(conf_mat) == col(conf_mat)]) / sum(conf_mat)
+  cbind(k = k, accuracy = accu)
+}
+
+different_k = sapply(seq(1, 21, by = 2),
+                     function(x) chooseK(x,
+                                         train_set = training_stroke[, -c(11)],
+                                         val_set = test_stroke[, -c(11)],
+                                         train_class = training_stroke$stroke,
+                                         val_class = test_stroke$stroke
+                                         ))
+
+  
+different_k  = tibble(k = different_k[1,],
+                      recall_sen = different_k[2,])
+
+ggplot(different_k,
+       aes(x = k, y = recall_sen)) + 
+  geom_line(color = "orange", size = 1.5) + 
+  geom_point(size = 3)
+
+```
+
+### KNN Model
+
+The confusion matrix below illustrates some of the the evaluation metrics for the model.  The accuracy of the model overall is 77.78% which is good considering that the base rate for the data set was 50%. The Balanced Accuracy for the model was around 77.78% which is also pretty good compared to the base rate.  The false negative rate was 16.67% which is okay but that means 16.67% of people who had a stroke were classified as not being at risk of a stroke from our model.  The false positive rate was 27.78% which is not great and higher than the false negative but since our model is catered towards trying to catch people who are likely to have a stroke before it happens, it is better to have a higher false positive rate than a high false negative rate. The Kappa value for the model was 0.5556 which indicates moderate agreement. For a model like this, it is good that the false negative rate is lower than the false positive rate since it would be very bad if a patient who was at risk was told that they didn't have to worry about anything. The Log-Loss was calculated to be 2.790974 which is bad since that means the model is not totally confident for a lot of the predictions.  The F1-score was 0.7647059 which is pretty good meaning that the there aren't too many false negatives and false positives. 
+
+```{r, echo = FALSE, include = FALSE}
+stroke_KNN <- knn(train = training_stroke[, -c(11)],
+              test = test_stroke[, -c(11)],
+              cl = training_stroke$stroke,
+              k = 5,
+              use.all = T,
+              prob = T)
+
+prob_stroke<- data.frame(prob = attr(stroke_KNN, "prob"))
+```
+
+```{r, echo = FALSE}
+stroke_matrix <- confusionMatrix(as.factor(stroke_KNN), as.factor(test_stroke$stroke), positive = "1", dnn = c("Prediction", "Actual"), mode = "sens_spec")
+
+stroke_matrix
+
+```
+
+```{r, echo = FALSE, include = FALSE}
+prob_stroke <- prob_stroke %>%
+  mutate(prob_stroke, target = as.numeric(stroke_KNN))
+prob_stroke$target <- as.numeric(recode(prob_stroke$target, '2' = '1', '1' = '0'))
+
+prob_stroke <- prob_stroke %>%
+  mutate('1' = ifelse(prob_stroke$target =='1', prob_stroke$prob, 1-prob_stroke$prob))
+
+prob_stroke <- prob_stroke%>%
+  mutate('0' = 1-prob_stroke$`1`)
+
+LogLoss(as.numeric(prob_stroke$`1`), as.numeric(test_stroke$stroke)) # 0.8960143
+
+test_stroke$stroke <- recode(test_stroke$stroke, '0' = 1, '1' = 2)
+F1_Score(as.numeric(stroke_KNN), as.numeric(test_stroke$stroke)) # 0.7647059
+
+
+
+```
+
+### ROC/AUC Output
+
+The AUC had a value of 0.77276273 which is pretty good meaning that our model is doing a good job of distinguishing between patients with and without disease.
+
+```{r, echo = FALSE}
+stroke_eval <- data.frame(pred_class = stroke_KNN, pred_prob = prob_stroke$`1`, target = as.numeric(test_stroke$stroke))
+pred_stroke <- prediction(stroke_eval$pred_prob, stroke_eval$target)
+
+stroke_perf <- performance(pred_stroke, "tpr","fpr")
+plot(stroke_perf, colorize = TRUE) + 
+  abline(a=0,b=1)
+stroke_perf_AUC <- performance(pred_stroke, "auc")
+print(stroke_perf_AUC@y.values) 
+
+```
+
+## Decision Tree
+
+### Data Cleaning
+
+The data was cleaned similar to how it was cleaned in the kNN model with the exception of the added binary columns: bmi_state, glucose_state, and age_state. BMI_state was created based off of the bmi of each patient and if they had a bmi over 25 then they were classified as overweight and those with a bmi less than 25 were classified as having a normal weight. Glucose_state was done in a similar manner where people with a glucose level less than 125 was classified as normal and those over 125 were classified as diabetic. Lastly, age_state was classified based off of the average age in the United States which is 38.4 so people who were younger than 38.4 were classified as young and those older than 38.4 were classified as old. The original columns, bmi, age, and glucose were then removed as we were unable to use them in our tree since they are not binary. 
+```{r, echo=TRUE}
+stroke <- read.csv("stroke.csv")
+stroke$bmi <- gsub("N/A", NA, stroke$bmi)
+stroke$smoking_status <- gsub("Unknown", NA, stroke$smoking_status)
+stroke <- na.omit(stroke)
+
+# Data Cleaning Specifically for Decision Tree - Changing things to Binary 
+
+stroke$bmi <- as.numeric(stroke$bmi)
+stroke <- stroke %>%
+  mutate(bmi_state = ifelse(bmi <= 25, "normal", "overweight"))
+
+
+stroke <- stroke %>%
+  mutate(glucose_state = ifelse(avg_glucose_level <= 125, "normal", "diabetic"))
+
+stroke <- stroke %>%
+  mutate(age_state = ifelse(age <= 38.4, "young", "old"))
+
+# https://www.statista.com/statistics/241494/median-age-of-the-us-population/#:~:text=In%202018%2C%20the%20median%20age,United%20States%20was%2038.4%20years.
+
+
+stroke_positive <- subset(stroke, stroke == 1)
+stroke_negative <- subset(stroke, stroke == 0)
+set.seed(1980)
+stroke_sample <- stroke_negative[sample(1:nrow(stroke_negative), size = 180),]
+stroke_final <- rbind(stroke_sample, stroke_positive)
+stroke_final <- stroke_final[-c(1, 2, 3, 7, 9, 10, 11)]
+
+stroke_final <- lapply(stroke_final, function(x) as.factor(x))
+
+stroke_final <- as_tibble(stroke_final)
+
+
+```
+
+### Creation of Test Set
+
+The test and training set was created with an 80/20 partition where 80% of the data set was used for training and 20% was used for testing. 
+```{r, echo=TRUE}
+set.seed(1980)
+stroke_break <- createDataPartition(stroke_final$stroke, times = 1, p = 0.8, list = FALSE)
+training_stroke <- stroke_final[stroke_break,]
+test_stroke <- stroke_final[-stroke_break,]
+
+```
+
+### Baserate Calculation for Stroke
+
+The baserate calculation is 50% which means that if guessing randomly you have a 50% chance of guessing correctly. 
+
+```{r, echo = FALSE, include = FALSE}
+mean(as.numeric(stroke_final$stroke))-1
+
+```
+
+### Building the Model
+
+The 5 variables used by the model were age_state, glucose_state, heart_disease, residence_type, ever_married, and hypertension. The most important variable in this model was age_state, meaning that age is a really good indicator of whether or not you will have a stroke. Next, glucose_state was also a good estimate for stroke likelihood.  Surprisingly, hypertension wasn't a very good indicator. Based off of the relative error, 6 is the ideal number since it has the lowest relative error. 
+```{r, echo=TRUE}
+set.seed(1950)
+tree_stroke = rpart(stroke~.,  
+                            method = "class",
+                            parms = list(split = "gini"),
+                            data = training_stroke,
+                            control = rpart.control(cp=0.01))
+
+
+```
+
+```{r}
+tree_stroke$variable.importance
+```
+
+```{r}
+rpart.plot(tree_stroke, type = 4, extra = 101)
+```
+
+```{r}
+plotcp(tree_stroke)
+
+```
+
+### Confusion Matrix  and Prediction Model
+The model had an overall accuracy of 61.11% and a balanced accuracy of 61.11%.This is not too much better than the base rate of 0.5 indicating that the model is not much better than random chance. The sensitivity of the model is 0.75 indicating that the false negative rate is 25%. The specifcity of the model is 0.4722 indicating that the false positive rate is 52.78% which is not very good.  But like the kNN model, it is better to have a high false positive rate than it is to have a high false negative rate in the context of our problem since diagnosing low chance stroke people to be at risk of a stroke is better than diagnosing people who have a high chance of a stroke as having a lower chance of a stroke. The Log-Loss value was 0.54108 which is okay since that means the confident is fairly confident about its predictions. The F1-score was 0.5483831 which is not great.  This is likely due to the high false positive rate.  
+```{r}
+stroke_predict = predict(tree_stroke, test_stroke, type = "class")
+tree_matrix <- confusionMatrix(as.factor(stroke_predict), as.factor(test_stroke$stroke), positive = "1", dnn = c("Prediction", "Actual"), mode = "sens_spec")
+
+tree_matrix
+```
+
+```{r, echo = FALSE, include = FALSE}
+stroke_prob <- predict(tree_stroke, newdata = test_stroke, type = "prob")
+stroke_prob <- as.tibble(stroke_prob)
+stroke_eval <- data.frame(pred_class = stroke_predict, pred_prob = stroke_prob$`1`, target = as.numeric(test_stroke$stroke))
+LogLoss(as.numeric(stroke_eval$pred_prob), as.numeric(test_stroke$stroke)) # 0.5410805
+
+F1_Score(as.numeric(stroke_eval$pred_class), as.numeric(test_stroke$stroke)) 
+# 0.5483871
+```
+
+### AUC/ROC Curve
+The AUC/ROC curve shows an AUC value of 0.6111 which is pretty poor meaning that the model is not doing a good job of distinguishing between patients who get a stroke and those that are not at risk of a stroke. 
+```{r}
+Stroke_roc <- roc(as.numeric(test_stroke$stroke), as.numeric(stroke_predict), plot = TRUE)
+Stroke_roc$auc
+plot(Stroke_roc) 
+```
 
 ## Random Forest
+
+```{r}
+# set the seed
+set.seed(1)
+```
+
+### Prep the data
+```{r, echo=TRUE}
+stroke = stroke %>%
+  select(-id)
+
+# make all parameters factors
+stroke_factor = as.data.frame(
+  apply(
+    stroke,
+    2,
+    function(x) as.factor(x))
+  )
+
+# the proportion of data used for training
+training_split = 0.9
+
+training_rows = sample(
+                    1:nrow(stroke_factor),
+                    dim(stroke_factor)[1]*training_split,
+                    replace=FALSE
+                       )
+
+# split into training and test
+stroke_factor_training_data = stroke_factor[training_rows,]
+stroke_factor_testing_data = stroke_factor[-training_rows, ]
+
+```
+
+### Build the first random forest
+```{r, include=FALSE, echo=TRUE}
+
+# use mytry function given in class
+mytry_tune = function(x){
+  xx = dim(x)[2]-1
+  return(sqrt(xx))
+}
+
+# create the random forest
+stroke_rf = randomForest(
+  as.factor(stroke)~.,
+  stroke_factor_training_data,
+  #y = NULL,           #<- A response vector. This is unnecessary because we're specifying a response formula.
+  #subset = NULL,      #<- This is unnecessary because we're using all the rows in the training data set.
+  #xtest = NULL,       #<- This is already defined in the formula by the ".".
+  #ytest = NULL,       #<- This is already defined in the formula by "parent".
+  ntree = 1000,        #<- Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets classified at least a few times.
+  mtry = mytry_tune(stroke_factor_training_data),            #<- Number of variables randomly sampled as candidates at each split. Default number for classification is sqrt(# of variables). Default number for regression is (# of variables / 3).
+  replace = TRUE,      #<- Should sampled data points be replaced.
+  #classwt = NULL,     #<- Priors of the classes. Use this if you want to specify what proportion of the data SHOULD be in each class. This is relevant if your sample data is not completely representative of the actual population 
+  #strata = NULL,      #<- Not necessary for our purpose here.
+  sampsize = 100,      #<- Size of sample to draw each time.
+  nodesize = 10,        #<- Minimum numbers of data points in terminal nodes.
+  #maxnodes = NULL,    #<- Limits the number of maximum splits. 
+  importance = TRUE,   #<- Should importance of predictors be assessed?
+  #localImp = FALSE,   #<- Should casewise importance measure be computed? (Setting this to TRUE will override importance.)
+  proximity = FALSE,    #<- Should a proximity measure between rows be calculated?
+  norm.votes = TRUE,   #<- If TRUE (default), the final result of votes are expressed as fractions. If FALSE, raw vote counts are returned (useful for combining results from different runs).
+  do.trace = TRUE,     #<- If set to TRUE, give a more verbose output as randomForest is run.
+  keep.forest = TRUE,  #<- If set to FALSE, the forest will not be retained in the output object. If xtest is given, defaults to FALSE.
+  keep.inbag = TRUE   #<- Should an n by ntree matrix be returned that keeps track of which samples are in-bag in which trees? 
+)
+```
+
+#### Confusion matrix
+```{r}
+stroke_rf$confusion
+
+stroke_rf_accuracy = sum(stroke_rf$confusion[row(stroke_rf$confusion) == col(stroke_rf$confusion)]) / sum(stroke_rf$confusion)*100
+```
+
+```{r, echo=FALSE}
+prob_guessing = (sum(stroke$stroke)/nrow(stroke))^2+(1-(sum(stroke$stroke)/nrow(stroke)))^2
+```
+
+The random forest model accuracy was `r as.integer(stroke_rf_accuracy)`%
+
+Guessing would give us an accuracy of `r as.integer(prob_guessing*100)`%
+
+#### Parameter Importance 
+```{r}
+varImpPlot(
+  stroke_rf, 
+  sort=TRUE,
+  scale=TRUE
+)
+```
+
+Mean Decrease Accuracy plot shows how much accuracy the model losses by excluding each variable (top of plot is most important)
+
+The top five for MDA are: Age, BMI, Heart Disease, Marriage, and Hyper Tension with all five being 3 or higher 
+
+Gini plot shows how each paramter contributes to the homogeneity of the nodes. Higher the better.
+
+The top five for MDG are: Age, Glucose Level, BMI, Heart Disease and Hyper Tension with the first three being much higher (4-6 times)
+
+#### Visualize random forest results
+```{r}
+stroke_rf_error = data.frame(1:nrow(stroke_rf$err.rate), stroke_rf$err.rate)
+
+colnames(stroke_rf_error) = c("Number of Trees", "Out of the Box", "No Stroke", "Stroke")
+
+stroke_rf_error$Diff <- stroke_rf_error$Stroke-stroke_rf_error$`No Stroke`
+
+datatable(stroke_rf_error)
+
+fig <- plot_ly(x=stroke_rf_error$`Number of Trees`, y=stroke_rf_error$Diff,name="Diff", type = 'scatter', mode = 'lines')
+fig <- fig %>% add_trace(y=stroke_rf_error$`Out of the Box`, name="OOB_Er")
+fig <- fig %>% add_trace(y=stroke_rf_error$`No Stroke`, name="No Stroke")
+fig <- fig %>% add_trace(y=stroke_rf_error$Stroke, name="Stroke")
+
+fig
+
+
+```
+
+### Optimize Model with Fewer Trees
+
+#### Build the smaller random forest
+```{r, include=FALSE, echo=TRUE}
+
+# create the random forest
+stroke_rf_4 = randomForest(
+  as.factor(stroke)~.,
+  stroke_factor_training_data,
+  #y = NULL,           #<- A response vector. This is unnecessary because we're specifying a response formula.
+  #subset = NULL,      #<- This is unnecessary because we're using all the rows in the training data set.
+  #xtest = NULL,       #<- This is already defined in the formula by the ".".
+  #ytest = NULL,       #<- This is already defined in the formula by "parent".
+  ntree = 4,        #<- Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets classified at least a few times.
+  mtry = mytry_tune(stroke_factor_training_data),            #<- Number of variables randomly sampled as candidates at each split. Default number for classification is sqrt(# of variables). Default number for regression is (# of variables / 3).
+  replace = TRUE,      #<- Should sampled data points be replaced.
+  #classwt = NULL,     #<- Priors of the classes. Use this if you want to specify what proportion of the data SHOULD be in each class. This is relevant if your sample data is not completely representative of the actual population 
+  #strata = NULL,      #<- Not necessary for our purpose here.
+  sampsize = 100,      #<- Size of sample to draw each time.
+  nodesize = 10,        #<- Minimum numbers of data points in terminal nodes.
+  #maxnodes = NULL,    #<- Limits the number of maximum splits. 
+  importance = TRUE,   #<- Should importance of predictors be assessed?
+  #localImp = FALSE,   #<- Should casewise importance measure be computed? (Setting this to TRUE will override importance.)
+  proximity = FALSE,    #<- Should a proximity measure between rows be calculated?
+  norm.votes = TRUE,   #<- If TRUE (default), the final result of votes are expressed as fractions. If FALSE, raw vote counts are returned (useful for combining results from different runs).
+  do.trace = TRUE,     #<- If set to TRUE, give a more verbose output as randomForest is run.
+  keep.forest = TRUE,  #<- If set to FALSE, the forest will not be retained in the output object. If xtest is given, defaults to FALSE.
+  keep.inbag = TRUE   #<- Should an n by ntree matrix be returned that keeps track of which samples are in-bag in which trees? 
+)
+```
+
+#### Confusion matrix
+```{r}
+stroke_rf_4$confusion
+
+stroke_rf_4_accuracy = sum(stroke_rf_4$confusion[row(stroke_rf_4$confusion) == col(stroke_rf_4$confusion)]) / sum(stroke_rf_4$confusion)*100
+```
+
+The random forest model with only four trees accuracy was `r as.integer(stroke_rf_4_accuracy)`%
+
+And our larger tree model gave an accuracy of `r as.integer(stroke_rf_accuracy)`%
+
+Guessing would give us an accuracy of `r as.integer(prob_guessing*100)`%
+
+#### Parameter Importance
+```{r}
+varImpPlot(
+  stroke_rf_4, 
+  sort=TRUE,
+  scale=TRUE
+)
+```
+
+The top five for MDA are: Age, BMI, Gender, Heart Disease, and Hyper Tension.
+
+What is interesting is that we are now seeing a negative or zero impact from some of the parameters, we will remove these and compare below. The largets parameters to consider later are Age, Gender and Heart Disease.
+
+The top three for MDG are: Glucose Level, Age, and BMI. All other parameters have a score of 0.5 or lower and will not be considered.
+
+#### Visualize random forest results
+```{r}
+stroke_rf_4_error = data.frame(1:nrow(stroke_rf_4$err.rate), stroke_rf_4$err.rate)
+
+colnames(stroke_rf_4_error) = c("Number of Trees", "Out of the Box", "No Stroke", "Stroke")
+
+stroke_rf_4_error$Diff <- stroke_rf_4_error$Stroke-stroke_rf_4_error$`No Stroke`
+
+datatable(stroke_rf_4_error)
+
+fig <- plot_ly(x=stroke_rf_4_error$`Number of Trees`, y=stroke_rf_4_error$Diff,name="Diff", type = 'scatter', mode = 'lines')
+fig <- fig %>% add_trace(y=stroke_rf_4_error$`Out of the Box`, name="OOB_Er")
+fig <- fig %>% add_trace(y=stroke_rf_4_error$`No Stroke`, name="No Stroke")
+fig <- fig %>% add_trace(y=stroke_rf_4_error$Stroke, name="Stroke")
+
+fig
+
+
+```
+
+### Build a random forest with only the most valuable parameters "Lean"
+```{r, echo=TRUE}
+
+# create leaner testing and training data sets
+stroke_factor_training_data_lean = stroke_factor_training_data %>%
+  select(age, gender, heart_disease, bmi, avg_glucose_level, stroke)
+stroke_factor_testing_data_lean = stroke_factor_testing_data %>%
+  select(age, gender, heart_disease, bmi, avg_glucose_level, stroke)
+
+# create the random forest
+stroke_rf_lean = randomForest(
+  as.factor(stroke)~.,
+  stroke_factor_training_data_lean,
+  #y = NULL,           #<- A response vector. This is unnecessary because we're specifying a response formula.
+  #subset = NULL,      #<- This is unnecessary because we're using all the rows in the training data set.
+  #xtest = NULL,       #<- This is already defined in the formula by the ".".
+  #ytest = NULL,       #<- This is already defined in the formula by "parent".
+  ntree = 4,        #<- Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets classified at least a few times.
+  mtry = mytry_tune(stroke_factor_training_data_lean),            #<- Number of variables randomly sampled as candidates at each split. Default number for classification is sqrt(# of variables). Default number for regression is (# of variables / 3).
+  replace = TRUE,      #<- Should sampled data points be replaced.
+  #classwt = NULL,     #<- Priors of the classes. Use this if you want to specify what proportion of the data SHOULD be in each class. This is relevant if your sample data is not completely representative of the actual population 
+  #strata = NULL,      #<- Not necessary for our purpose here.
+  sampsize = 100,      #<- Size of sample to draw each time.
+  nodesize = 10,        #<- Minimum numbers of data points in terminal nodes.
+  #maxnodes = NULL,    #<- Limits the number of maximum splits. 
+  importance = TRUE,   #<- Should importance of predictors be assessed?
+  #localImp = FALSE,   #<- Should casewise importance measure be computed? (Setting this to TRUE will override importance.)
+  proximity = FALSE,    #<- Should a proximity measure between rows be calculated?
+  norm.votes = TRUE,   #<- If TRUE (default), the final result of votes are expressed as fractions. If FALSE, raw vote counts are returned (useful for combining results from different runs).
+  do.trace = TRUE,     #<- If set to TRUE, give a more verbose output as randomForest is run.
+  keep.forest = TRUE,  #<- If set to FALSE, the forest will not be retained in the output object. If xtest is given, defaults to FALSE.
+  keep.inbag = TRUE   #<- Should an n by ntree matrix be returned that keeps track of which samples are in-bag in which trees? 
+)
+```
+
+#### Confusion matrix
+```{r}
+stroke_rf_lean$confusion
+
+stroke_rf_lean_accuracy = sum(stroke_rf_lean$confusion[row(stroke_rf_lean$confusion) == col(stroke_rf_lean$confusion)]) / sum(stroke_rf_lean$confusion)*100
+```
+
+This random forest model with a smaller number of paramters gave an accuracy of `r as.integer(stroke_rf_lean_accuracy)`%
+
+The random forest model with only four trees accuracy was `r as.integer(stroke_rf_4_accuracy)`%
+
+And our larger tree model gave an accuracy of `r as.integer(stroke_rf_accuracy)`%
+
+Guessing would give us an accuracy of `r as.integer(prob_guessing*100)`%
+
+#### Parameter Importance
+```{r}
+varImpPlot(
+  stroke_rf_lean, 
+  sort=TRUE,
+  scale=TRUE
+)
+```
+
+### How do the models do on the testing data
+
+```{r}
+# create predictions
+large_predict = predict(
+  stroke_rf,
+  stroke_factor_testing_data,
+  type="response",
+  predict.all = TRUE,
+  proximity = TRUE
+)
+
+# create predictions
+smaller_predict = predict(
+  stroke_rf_4,
+  stroke_factor_testing_data,
+  type="response",
+  predict.all = TRUE,
+  proximity = TRUE
+)
+
+# create predictions
+lean_predict = predict(
+  stroke_rf_lean,
+  stroke_factor_testing_data_lean,
+  type="response",
+  predict.all = TRUE,
+  proximity = TRUE
+)
+```
+
+```{r}
+# combine all predictions
+predictions = data.frame(
+  as.factor(stroke_factor_testing_data$stroke),
+  as.factor(large_predict$predicted$aggregate),
+  as.factor(smaller_predict$predicted$aggregate),
+  as.factor(lean_predict$predicted$aggregate)
+)
+
+# Rename the columns
+colnames(predictions) = c("Stroke Ground Truth", "Large Prediction", "Small Prediction", "Lean Prediction")
+
+# display the predictions
+datatable(predictions)
+
+plt = predictions %>%
+  ggplot(
+    aes(
+      x=as.numeric(row.names(predictions)),
+      y=`Stroke Ground Truth`,
+      color="black"
+    )
+  )+
+  geom_point()+
+  geom_point(
+    aes(
+      y=`Large Prediction`,
+      color='red'
+    ),
+  )+
+  geom_point(
+    aes(
+      y=`Small Prediction`,
+      color='blue'
+    ),
+  )+
+  geom_point(
+    aes(
+      y=`Lean Prediction`,
+      color='orange'
+    ),
+  )+
+  theme_bw()+
+  scale_color_discrete(
+    name = "Y series", 
+    labels = c("Ground Truth", "Large Model","Small Model","Lean Model")
+  )+
+  labs(
+    x="Patient ID",
+    y="Stroke 1=Yes"
+  )
+
+ggplotly(plt)
+
+```
+
+#### Confusion Matrix and Model Statistics
+
+##### Large Predictions
+```{r}
+confusionMatrix(
+  predictions$`Large Prediction`,
+  as.factor(stroke_factor_testing_data$stroke),
+  positive = "1", 
+  dnn=c("Prediction", "Actual"), 
+  mode = "everything"
+)
+
+```
+
+Extremely low kappa
+
+##### Small Predictions
+```{r}
+confusionMatrix(
+  predictions$`Small Prediction`,
+  as.factor(stroke_factor_testing_data$stroke),
+  positive = "1", 
+  dnn=c("Prediction", "Actual"), 
+  mode = "everything"
+)
+
+```
+
+
+
+##### Lean Predictions
+```{r}
+confusionMatrix(
+  predictions$`Lean Prediction`,
+  as.factor(stroke_factor_testing_data$stroke),
+  positive = "1", 
+  dnn=c("Prediction", "Actual"), 
+  mode = "everything"
+)
+
+```
+Y axis is ground truth, x axis is predictions
+
+We see that we are never predicting that a person has a stroke, and have the same predictions for each model.
+
+With this final analysis, we can see that while the model is quite accurate (when looking at strickly the numbers), it is unable to give reference for when a patient may have a stroke, which is the entire purpose of the technology.
+
+
+#### ROC Curve
+```{r}
+
+stroke_rf_predictions = as.tibble(as.numeric(as.character(stroke_rf$votes[,2])))
+stroke_rf_actual = tibble(as.factor(stroke_factor_training_data$stroke))
+
+stroke_prediction_comparison = prediction(
+  stroke_rf_predictions,
+  stroke_rf_actual,
+)
+
+stroke_rf_performance = performance(
+  stroke_prediction_comparison,
+  measure = "tpr",
+  x.measure = "fpr"
+)
+
+stroke_rates = 
+  data.frame(
+    fp = stroke_prediction_comparison@fp,  #<- false positive classification.
+    tp = stroke_prediction_comparison@tp,  #<- true positive classification.
+    tn = stroke_prediction_comparison@tn,  #<- true negative classification.
+    fn = stroke_prediction_comparison@fn
+  )
+colnames(stroke_rates) = c("fp", "tp", "tn", "fn")
+
+tpr = stroke_rates$tp /(stroke_rates$tp + stroke_rates$fn)
+fpr = stroke_rates$fp /(stroke_rates$fp + stroke_rates$tn)
+```
+
+```{r}
+# plot
+plot(fpr,          #<- x-axis value.
+     tpr,          #<- y-axis value.
+     col = "blue",  #<- color of the line. 
+     type = "l")   #<- line type.
+abline(0,1)
+grid(col = "black")
+```
+
+
 
 # Fairness Assessment
 •	Fairness assessment – if necessary, should you happen to have any protected classes.
