@@ -586,7 +586,7 @@ stroke_factor_testing_data = stroke_factor[-training_rows, ]
 ```
 
 ### Build the first random forest
-```{r, include=FALSE, echo=TRUE}
+```{r, echo=TRUE, results='hide'}
 
 # use mytry function given in class
 mytry_tune = function(x){
@@ -630,6 +630,8 @@ stroke_rf_accuracy = sum(stroke_rf$confusion[row(stroke_rf$confusion) == col(str
 ```{r, echo=FALSE}
 prob_guessing = (sum(stroke$stroke)/nrow(stroke))^2+(1-(sum(stroke$stroke)/nrow(stroke)))^2
 ```
+
+Y axis is ground truth, x axis is predictions
 
 The random forest model accuracy was `r as.integer(stroke_rf_accuracy)`%
 
@@ -675,7 +677,7 @@ fig
 ### Optimize Model with Fewer Trees
 
 #### Build the smaller random forest
-```{r, include=FALSE, echo=TRUE}
+```{r, echo=TRUE, results='hide'}
 
 # create the random forest
 stroke_rf_4 = randomForest(
@@ -709,6 +711,8 @@ stroke_rf_4$confusion
 
 stroke_rf_4_accuracy = sum(stroke_rf_4$confusion[row(stroke_rf_4$confusion) == col(stroke_rf_4$confusion)]) / sum(stroke_rf_4$confusion)*100
 ```
+
+Y axis is ground truth, x axis is predictions
 
 The random forest model with only four trees accuracy was `r as.integer(stroke_rf_4_accuracy)`%
 
@@ -752,7 +756,7 @@ fig
 ```
 
 ### Build a random forest with only the most valuable parameters "Lean"
-```{r, echo=TRUE}
+```{r, echo=TRUE, results='hide'}
 
 # create leaner testing and training data sets
 stroke_factor_training_data_lean = stroke_factor_training_data %>%
@@ -793,7 +797,9 @@ stroke_rf_lean$confusion
 stroke_rf_lean_accuracy = sum(stroke_rf_lean$confusion[row(stroke_rf_lean$confusion) == col(stroke_rf_lean$confusion)]) / sum(stroke_rf_lean$confusion)*100
 ```
 
-This random forest model with a smaller number of paramters gave an accuracy of `r as.integer(stroke_rf_lean_accuracy)`%
+Y axis is ground truth, x axis is predictions
+
+This random forest model with a smaller number of parameters gave an accuracy of `r as.integer(stroke_rf_lean_accuracy)`%
 
 The random forest model with only four trees accuracy was `r as.integer(stroke_rf_4_accuracy)`%
 
@@ -938,12 +944,9 @@ confusionMatrix(
 )
 
 ```
-Y axis is ground truth, x axis is predictions
 
+##### Summary of findings so far
 We see that we are never predicting that a person has a stroke, and have the same predictions for each model.
-
-With this final analysis, we can see that while the model is quite accurate (when looking at strickly the numbers), it is unable to give reference for when a patient may have a stroke, which is the entire purpose of the technology.
-
 
 #### ROC Curve
 ```{r}
@@ -985,18 +988,28 @@ abline(0,1)
 grid(col = "black")
 ```
 
+### Random Forest findings
+
+We found that the most important parameters to the model were: Age, Heart Disease and married state.
+
+With this random forest analysis, we can see that while the model is quite accurate (when looking at strictly the numbers), it is unable to give reference for when a patient may have a stroke, which is the entire purpose of the technology.
 
 
 # Fairness Assessment
-•	Fairness assessment – if necessary, should you happen to have any protected classes.
+We do not believe we need to perform a formal fairness assessment as we are not dealing with protected classes. The only possible protected class we are dealing with is gender, which we have a fair representation of both groups.
+
+It is possible that our dataset is not ethically or reasonably sourced. We of course recommend further research into finding a dataset we can be completely confident in. Perhaps one that distinguishes the protected classes of the individual. These added parameters are not for model creation but rather just to validate the source of the data.
 
 # Conclusions
-•	Conclusions – What can you say about the results of the methods section as it relates to your question given the limitations to your model. 
+
+  Our findings are not surprising. We found that the there are no incredible factors that contribute to a person having a stroke based on the dataset we had available. We saw that overall health was the largest contributor coupled with age. Contributing factors such as high blood sugar, heart disease, and bmi (overweight) all affected the patient's likelyhood of stroke.
+  We recommend that our tools not be used to predict a patient's risk of having a stroke, but rather as a tool for doctors to help explain how being healthy overall will reduce the individual's risk of a stroke.
 
 # Future Work
-•	Future work – What additional analysis is needed or what limited your analysis on this project.
 
--the dataset was kind of unbalanced
+We recommend compiling a larger dataset that is comprised of more individuals that have had strokes. This will aid in model performance as the dataset will be more balanced and will have a more wholistic view.
+
+We also recommend futher analysis be done on the possible gentics of those who have had a stroke. As we found that the main contributing factor from our analysis was overall health of the individual, there may be an underlying marker for stroke that we are not currently capturing.
 
 
 # References 
